@@ -132,3 +132,4 @@ SOFTWARE.
 ## Mitwirkung
 
 Issues und Pull Requests für Verbesserungen sind willkommen!
+
