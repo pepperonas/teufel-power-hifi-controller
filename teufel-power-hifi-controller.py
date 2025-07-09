@@ -10,6 +10,7 @@ import pigpio
 import time
 import sys
 import os
+import argparse
 
 # Setze Prozesspriorität auf Maximum
 try:
@@ -317,11 +318,43 @@ class TeufelMacros(TeufelIRRemote):
             self.send_command('CMD_TREBLE_DOWN')
             time.sleep(0.05)
 
+def execute_command(command_name, repeats=1):
+    """Führt einen einzelnen Befehl aus"""
+    try:
+        remote = TeufelIRRemote()
+        
+        if command_name in COMMANDS:
+            if repeats > 1:
+                remote.send_repeating(command_name, repeats)
+            else:
+                remote.send_command(command_name)
+            print(f"Command {command_name} sent successfully (repeats: {repeats})")
+            return True
+        else:
+            print(f"Unknown command: {command_name}")
+            print("Available commands:", list(COMMANDS.keys()))
+            return False
+    except Exception as e:
+        print(f"Error executing command: {e}")
+        return False
+    finally:
+        if 'remote' in locals():
+            del remote
+
 if __name__ == "__main__":
+    # Argument parser für Command-Line-Interface
+    parser = argparse.ArgumentParser(description='Teufel Power HiFi IR Controller')
+    parser.add_argument('--command', '-c', help='Command to execute')
+    parser.add_argument('--repeats', '-r', type=int, default=1, help='Number of repeats (default: 1)')
+    parser.add_argument('--list', '-l', action='store_true', help='List available commands')
+    parser.add_argument('--interactive', '-i', action='store_true', help='Interactive mode')
+    
+    args = parser.parse_args()
+    
     # Prüfe ob als root
     if os.geteuid() != 0:
         print("WARNUNG: Für beste Performance als root ausführen!")
-        print("sudo python3 teufel_ir.py\n")
+        print("sudo python3 teufel-power-hifi-controller.py\n")
     
     # Prüfe pigpio daemon
     try:
@@ -336,4 +369,19 @@ if __name__ == "__main__":
         print("Installation: sudo apt-get install pigpio python3-pigpio")
         sys.exit(1)
     
-    main()
+    # Command-Line-Modus
+    if args.list:
+        print("Available commands:")
+        for cmd in COMMANDS.keys():
+            print(f"  {cmd}")
+        sys.exit(0)
+    
+    if args.command:
+        success = execute_command(args.command, args.repeats)
+        sys.exit(0 if success else 1)
+    
+    # Interactive-Modus oder Fallback
+    if args.interactive or len(sys.argv) == 1:
+        main()
+    else:
+        parser.print_help()

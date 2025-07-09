@@ -76,44 +76,10 @@ app.use(express.json());
 function executeCommand(command, repeats = 1) {
     return new Promise((resolve, reject) => {
         const pythonPath = config.pythonScriptPath;
-        const args = repeats > 1 ? `${command} ${repeats}` : command;
+        const repeatArg = repeats > 1 ? ` --repeats ${repeats}` : '';
+        const scriptCommand = `sudo python3 ${pythonPath} --command ${command}${repeatArg}`;
         
-        console.log(`Executing: python3 ${pythonPath} --command ${args}`);
-        
-        // Create a Python script that imports and uses the TeufelIRRemote class
-        const scriptCommand = `python3 -c "
-import sys
-import os
-sys.path.append('${path.dirname(pythonPath)}')
-
-# Import required modules
-try:
-    import pigpio
-    import time
-    
-    # Import from the main script
-    exec(open('${pythonPath}').read())
-    
-    # Create remote instance
-    remote = TeufelIRRemote()
-    cmd = '${command}'
-    
-    if cmd in COMMANDS:
-        if ${repeats} > 1:
-            remote.send_repeating(cmd, ${repeats})
-        else:
-            remote.send_command(cmd)
-        print(f'Command {cmd} sent successfully')
-    else:
-        print(f'Unknown command: {cmd}')
-        
-except Exception as e:
-    print(f'Error: {e}')
-    sys.exit(1)
-finally:
-    if 'remote' in locals():
-        del remote
-"`;
+        console.log(`Executing: ${scriptCommand}`);
         
         exec(scriptCommand, (error, stdout, stderr) => {
             if (error) {

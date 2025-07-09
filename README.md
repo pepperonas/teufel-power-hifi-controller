@@ -53,6 +53,7 @@ npm start
 npm run pm2:start
 
 # Browser öffnen: http://localhost:5002
+# Das Web-Interface ruft automatisch das Python-Script mit sudo auf
 ```
 
 ### Arduino
@@ -63,7 +64,7 @@ npm run pm2:start
 # Befehle verwenden: p=power, m=mute, +=volume up, etc.
 ```
 
-### Raspberry Pi (Python)
+### Raspberry Pi (Python - Command Line)
 ```bash
 # pigpio installieren
 sudo apt-get install pigpio python3-pigpio
@@ -71,8 +72,15 @@ sudo apt-get install pigpio python3-pigpio
 # pigpio daemon starten
 sudo pigpiod
 
-# Controller ausführen
-sudo python3 teufel-power-hifi-controller.py
+# Interaktives Interface
+sudo python3 teufel-power-hifi-controller.py --interactive
+
+# Einzelne Befehle
+sudo python3 teufel-power-hifi-controller.py --command CMD_POWER
+sudo python3 teufel-power-hifi-controller.py --command CMD_VOLUME_UP --repeats 3
+
+# Verfügbare Befehle anzeigen
+python3 teufel-power-hifi-controller.py --list
 ```
 
 ## Befehlsreferenz
@@ -138,9 +146,11 @@ sudo python3 teufel-power-hifi-controller.py
 
 ### Technische Details
 - **Node.js Backend**: Express.js Server mit API-Endpunkten
+- **Python Integration**: Automatischer Aufruf des Python-Scripts via Command-Line
+- **Sudo-Berechtigung**: Web-Server führt Python-Script mit sudo für GPIO-Zugriff aus
 - **Vanilla JavaScript**: Keine externen Frameworks für maximale Performance
 - **CSS Custom Properties**: Konsistentes Design-System
-- **Hardware PWM Integration**: Direkte Kommunikation mit pigpio für IR-Übertragung
+- **Hardware PWM Integration**: pigpio Library für präzise IR-Übertragung
 
 ## Schaltpläne
 
@@ -158,9 +168,28 @@ GND ────────────────── IR LED (-)
 
 ## Fehlerbehebung
 
+### Hardware
 - **Keine Reaktion**: LED-Polarität und Abstand prüfen (10-20cm)
 - **Schwaches Signal**: 2N2222 Transistor-Verstärker hinzufügen
 - **Falsche Codes**: NEC Protocol und Address 0x5780 verifizieren
+
+### Web-Interface
+- **Web-Interface lädt nicht**: pigpio daemon prüfen: `sudo pigpiod`
+- **Buttons funktionieren nicht**: Node.js Server benötigt sudo-Berechtigung für Python-Script
+- **Permission Denied**: Raspberry Pi User muss sudo-Berechtigung haben
+- **Python-Script Fehler**: `python3 teufel-power-hifi-controller.py --list` zum Testen
+
+### Command-Line
+```bash
+# Test ob pigpio läuft
+sudo python3 teufel-power-hifi-controller.py --command CMD_POWER
+
+# Verfügbare Befehle anzeigen
+python3 teufel-power-hifi-controller.py --list
+
+# Hilfe anzeigen
+python3 teufel-power-hifi-controller.py --help
+```
 
 ## Lizenz
 

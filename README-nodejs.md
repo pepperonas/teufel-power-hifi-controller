@@ -55,6 +55,7 @@ npm run pm2:setup
 1. Browser öffnen und zu `http://localhost:5002` navigieren
 2. Web-Interface zur Steuerung des Teufel Power HiFi Systems verwenden
 3. Alle Steuerungen funktionieren über IR-Signale, die über den Raspberry Pi gesendet werden
+4. Der Web-Server ruft automatisch das Python-Script mit sudo-Berechtigung auf
 
 ## API-Endpunkte
 
@@ -92,6 +93,34 @@ npm run pm2:delete   # Service löschen
 - **IR-Protokoll**: NEC (Adresse: 0x5780)
 - **Hardware**: Hardware PWM auf GPIO 12 für präzises IR-Timing
 - **Rate-Limiting**: Max. 20 Lautstärke-Schritte in 10s, dann 30s Cooldown
+- **Python Integration**: Command-Line-Interface für IR-Übertragung
+- **Sudo-Berechtigung**: Automatischer Aufruf mit sudo für GPIO-Zugriff
+
+## Command-Line-Interface
+
+Das Python-Script kann auch direkt verwendet werden:
+
+```bash
+# Einzelne Befehle
+sudo python3 teufel-power-hifi-controller.py --command CMD_POWER
+sudo python3 teufel-power-hifi-controller.py --command CMD_VOLUME_UP --repeats 3
+
+# Verfügbare Befehle anzeigen
+python3 teufel-power-hifi-controller.py --list
+
+# Interaktives Interface
+sudo python3 teufel-power-hifi-controller.py --interactive
+
+# Hilfe anzeigen
+python3 teufel-power-hifi-controller.py --help
+```
+
+## Fehlerbehebung
+
+- **Buttons funktionieren nicht**: pigpio daemon prüfen: `sudo pigpiod`
+- **Permission Denied**: User benötigt sudo-Berechtigung
+- **Python-Script Fehler**: `python3 teufel-power-hifi-controller.py --list` zum Testen
+- **Server startet nicht**: Node.js dependencies: `npm install`
 
 ## Dateien
 
