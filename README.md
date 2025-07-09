@@ -1,18 +1,28 @@
 # Teufel Power HiFi IR Controller
 
-🎵 Arduino und Raspberry Pi Infrarot-Fernbedienung für Teufel Power HiFi Systeme
+🔊 Arduino, Raspberry Pi und Web-Interface Infrarot-Fernbedienung für Teufel Power HiFi Systeme
 
 ## Übersicht
 
-Dieses Projekt ermöglicht die Infrarot-Fernsteuerung von Teufel Power HiFi Systemen mit Arduino und Raspberry Pi. Es implementiert das NEC Protocol mit korrektem Timing und Frame-Struktur für zuverlässige Kommunikation.
+Dieses Projekt ermöglicht die Infrarot-Fernsteuerung von Teufel Power HiFi Systemen mit Arduino, Raspberry Pi und einem modernen Web-Interface. Es implementiert das NEC Protocol mit korrektem Timing und Frame-Struktur für zuverlässige Kommunikation und bietet eine benutzerfreundliche Web-Oberfläche mit erweiterten Funktionen.
 
 ## Features
 
+### Hardware Controller
 - ✅ Vollständiger IR Command Set (Power, Volume, EQ, Inputs)
 - ✅ Arduino Implementierung mit IRremote Library
 - ✅ Raspberry Pi Implementierung mit Hardware PWM
 - ✅ Interaktive Befehlsoberfläche
 - ✅ Signal-Verifikation und Test-Tools
+
+### Web-Interface
+- ✅ Moderne responsive Web-Oberfläche
+- ✅ Dark Theme Design mit Touch-optimierten Buttons
+- ✅ Lautstärke-Rate-Limiting (max. 20 Schritte in 10s mit 30s Cooldown)
+- ✅ Lustige Cooldown-Warnungen und visuelles Feedback
+- ✅ Echtzeit-Countdown bei Cooldown-Aktivierung
+- ✅ Vollständige Kontrolle über alle HiFi-Funktionen
+- ✅ PWA-Unterstützung für mobile Geräte
 
 ## Hardware Anforderungen
 
@@ -29,6 +39,22 @@ Dieses Projekt ermöglicht die Infrarot-Fernsteuerung von Teufel Power HiFi Syst
 
 ## Schnellstart
 
+### Web-Interface (Empfohlen)
+```bash
+# Node.js Abhängigkeiten installieren
+npm install
+
+# pigpio daemon starten
+sudo pigpiod
+
+# Web-Server starten
+npm start
+# oder mit PM2 für Produktion:
+npm run pm2:start
+
+# Browser öffnen: http://localhost:5002
+```
+
 ### Arduino
 ```bash
 # IRremote Library (Version 4.x) in Arduino IDE installieren
@@ -37,7 +63,7 @@ Dieses Projekt ermöglicht die Infrarot-Fernsteuerung von Teufel Power HiFi Syst
 # Befehle verwenden: p=power, m=mute, +=volume up, etc.
 ```
 
-### Raspberry Pi
+### Raspberry Pi (Python)
 ```bash
 # pigpio installieren
 sudo apt-get install pigpio python3-pigpio
@@ -76,14 +102,45 @@ sudo python3 teufel-power-hifi-controller.py
 ## Projektstruktur
 
 ```
-├── teufel-power-hifi-controller.py    # Raspberry Pi Controller
+├── server.js                          # Node.js Web-Server
+├── teufel-power-hifi-controller.py    # Raspberry Pi Python Controller
+├── package.json                       # Node.js Dependencies
+├── ecosystem.config.js                # PM2 Konfiguration
+├── public/
+│   ├── index.html                     # Web-Interface (Responsive PWA)
+│   └── manifest.json                  # PWA Manifest
 ├── reverse-engineering/
 │   ├── teufel-power-hifi-ir-tx.ino   # Arduino Transmitter
 │   ├── teufel-power-hifi-ir-rx.ino   # Arduino Receiver
 │   ├── teufel-power-hifi-ir-rx-ts.ino # Kombiniertes Test-Tool
 │   └── teufel-power-hifi-ir-mapping.csv # IR Code Mapping
-└── CLAUDE.md                          # Entwicklungshandbuch
+├── logs/                              # Anwendungs-Logs
+├── CLAUDE.md                          # Entwicklungshandbuch
+└── README.md                          # Diese Datei
 ```
+
+## Web-Interface Features
+
+### Benutzeroberfläche
+- **Dark Theme**: Moderne, augenfreundliche Benutzeroberfläche
+- **Responsive Design**: Optimiert für Desktop, Tablet und Smartphone
+- **Touch-optimiert**: Große Buttons für einfache Bedienung auf mobilen Geräten
+- **PWA-Support**: Kann als App auf dem Homescreen installiert werden
+
+### Erweiterte Funktionen
+- **Volume Rate Limiting**: Verhindert übermäßige Lautstärke-Erhöhung
+  - Maximal 20 Lautstärke-Schritte in 10 Sekunden
+  - 30 Sekunden Cooldown bei Überschreitung
+  - Lustiger Toast mit Warnung: "🎵 Cooldown aktiviert! Wir wollen es nicht übertreiben! 😄"
+  - Live-Countdown im Button während Cooldown
+- **Toast-Nachrichten**: Bestätigung aller Aktionen mit visueller Rückmeldung
+- **Button-States**: Visuelle Rückmeldung bei Aktionen (Hover, Active, Disabled)
+
+### Technische Details
+- **Node.js Backend**: Express.js Server mit API-Endpunkten
+- **Vanilla JavaScript**: Keine externen Frameworks für maximale Performance
+- **CSS Custom Properties**: Konsistentes Design-System
+- **Hardware PWM Integration**: Direkte Kommunikation mit pigpio für IR-Übertragung
 
 ## Schaltpläne
 

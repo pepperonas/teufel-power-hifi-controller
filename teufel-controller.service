@@ -1,0 +1,22 @@
+[Unit]
+Description=Teufel Power HiFi Controller Web Service
+After=network.target
+Wants=network.target
+
+[Service]
+Type=forking
+User=martin
+Group=martin
+WorkingDirectory=/home/martin/teufel-power-hifi-controller
+Environment=NODE_ENV=production
+Environment=PORT=5002
+ExecStart=/usr/bin/pm2 start ecosystem.config.js --no-daemon
+ExecReload=/usr/bin/pm2 reload ecosystem.config.js
+ExecStop=/usr/bin/pm2 kill
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
