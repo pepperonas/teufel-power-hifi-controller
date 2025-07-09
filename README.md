@@ -186,6 +186,12 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+## 🙏 Danksagung
+
+- IRremote Library von Arduino-IRremote
+- Teufel für die großartige Power HiFi Anlage
+- Arduino Community für die Unterstützung
+
 ## Mitwirkung
 
 Issues und Pull Requests für Verbesserungen sind willkommen!

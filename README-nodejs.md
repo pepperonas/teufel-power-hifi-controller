@@ -1,39 +1,40 @@
-# Teufel Power HiFi Controller - Node.js Web Interface
+# Teufel Power HiFi Controller - Node.js Web-Interface
 
-Modern web-based controller for Teufel Power HiFi systems via Raspberry Pi using IR remote control.
+🔊 Moderne Web-basierte Fernbedienung für Teufel Power HiFi Systeme via Raspberry Pi mit Infrarot-Steuerung.
 
 ## Features
 
-- **Web Interface**: Modern, responsive dark theme interface
-- **Full Remote Control**: Power, volume, input selection, EQ controls
-- **Real-time Status**: Live updates of system status
-- **PM2 Management**: Process management for reliability
-- **Raspberry Pi Integration**: Direct GPIO control for IR transmission
+- **Web-Interface**: Moderne, responsive Dark Theme Benutzeroberfläche
+- **Vollständige Fernbedienung**: Power, Lautstärke, Eingangswahl, EQ-Regler
+- **Echtzeit-Status**: Live-Updates des Systemstatus
+- **PM2-Verwaltung**: Prozess-Management für Zuverlässigkeit
+- **Raspberry Pi Integration**: Direkte GPIO-Steuerung für IR-Übertragung
+- **Lautstärke-Rate-Limiting**: Intelligente Begrenzung von Lautstärke-Änderungen
 
 ## Installation
 
-1. Install Node.js dependencies:
+1. Node.js Abhängigkeiten installieren:
 ```bash
 npm install
 ```
 
-2. Ensure the Python script is executable and pigpio is running:
+2. Python-Script ausführbar machen und pigpio starten:
 ```bash
 sudo pigpiod
 ```
 
-3. Start the server:
+3. Server starten:
 ```bash
-# Development mode
+# Entwicklungsmodus
 npm run dev
 
-# Production mode with PM2
+# Produktionsmodus mit PM2
 npm run pm2:start
 
-# Auto-start nach Boot einrichten (Option 1 - PM2)
+# Auto-Start nach Boot einrichten (Option 1 - PM2)
 npm run pm2:setup
 
-# Auto-start nach Boot einrichten (Option 2 - systemd)
+# Auto-Start nach Boot einrichten (Option 2 - systemd)
 ./install-service.sh
 ```
 
@@ -49,51 +50,52 @@ npm run pm2:setup
 ./install-service.sh
 ```
 
-## Usage
+## Verwendung
 
-1. Open your browser and go to `http://localhost:5002`
-2. Use the web interface to control your Teufel Power HiFi system
-3. All controls work via IR signals sent through the Raspberry Pi
+1. Browser öffnen und zu `http://localhost:5002` navigieren
+2. Web-Interface zur Steuerung des Teufel Power HiFi Systems verwenden
+3. Alle Steuerungen funktionieren über IR-Signale, die über den Raspberry Pi gesendet werden
 
-## API Endpoints
+## API-Endpunkte
 
-- `GET /api/health` - Health check and configuration
-- `GET /api/status` - Current system status
-- `POST /api/power` - Toggle power
-- `POST /api/volume` - Volume control
-- `POST /api/mute` - Toggle mute
-- `POST /api/input` - Select input source
-- `POST /api/eq` - EQ adjustments
-- `POST /api/balance` - Balance control
-- `POST /api/navigation` - Navigation controls
+- `GET /api/health` - Gesundheitscheck und Konfiguration
+- `GET /api/status` - Aktueller Systemstatus
+- `POST /api/power` - Power Ein/Aus
+- `POST /api/volume` - Lautstärke-Steuerung
+- `POST /api/mute` - Stumm Ein/Aus
+- `POST /api/input` - Eingangsquelle auswählen
+- `POST /api/eq` - EQ-Anpassungen
+- `POST /api/balance` - Balance-Steuerung
+- `POST /api/navigation` - Navigations-Steuerung
 
-## PM2 Commands
+## PM2-Befehle
 
 ```bash
-npm run pm2:start    # Start the service
-npm run pm2:stop     # Stop the service
-npm run pm2:restart  # Restart the service
-npm run pm2:delete   # Delete the service
+npm run pm2:start    # Service starten
+npm run pm2:stop     # Service stoppen
+npm run pm2:restart  # Service neu starten
+npm run pm2:delete   # Service löschen
 ```
 
-## Requirements
+## Anforderungen
 
 - Node.js 14+
-- Raspberry Pi with GPIO access
-- pigpio library
-- IR LED connected to GPIO 12 (Pin 32)
-- Teufel Power HiFi system
+- Raspberry Pi mit GPIO-Zugriff
+- pigpio Library
+- IR-LED angeschlossen an GPIO 12 (Pin 32)
+- Teufel Power HiFi System
 
-## Technical Details
+## Technische Details
 
 - **Port**: 5002
-- **Protocol**: HTTP/JSON API
-- **IR Protocol**: NEC (Address: 0x5780)
-- **Hardware**: Hardware PWM on GPIO 12 for precise IR timing
+- **Protokoll**: HTTP/JSON API
+- **IR-Protokoll**: NEC (Adresse: 0x5780)
+- **Hardware**: Hardware PWM auf GPIO 12 für präzises IR-Timing
+- **Rate-Limiting**: Max. 20 Lautstärke-Schritte in 10s, dann 30s Cooldown
 
-## Files
+## Dateien
 
-- `server.js` - Main Express server
-- `public/index.html` - Web interface
-- `ecosystem.config.js` - PM2 configuration
-- `teufel-power-hifi-controller.py` - Python IR controller script
+- `server.js` - Haupt-Express-Server
+- `public/index.html` - Web-Interface
+- `ecosystem.config.js` - PM2-Konfiguration
+- `teufel-power-hifi-controller.py` - Python IR-Controller-Script
