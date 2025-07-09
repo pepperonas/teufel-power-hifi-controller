@@ -2,6 +2,14 @@
 
 🔊 Arduino, Raspberry Pi und Web-Interface Infrarot-Fernbedienung für Teufel Power HiFi Systeme
 
+## Preview
+
+<div align="center">
+  <img src="teufel-mockup-1.png" alt="Teufel Controller Web Interface - Main View" width="400"/>
+  <img src="teufel-mockup-2.png" alt="Teufel Controller Web Interface - Controls" width="400"/>
+  <p><em>Moderne Web-Interface mit Dark Theme und Touch-optimierten Buttons</em></p>
+</div>
+
 ## Übersicht
 
 Dieses Projekt ermöglicht die Infrarot-Fernsteuerung von Teufel Power HiFi Systemen mit Arduino, Raspberry Pi und einem modernen Web-Interface. Es implementiert das NEC Protocol mit korrektem Timing und Frame-Struktur für zuverlässige Kommunikation und bietet eine benutzerfreundliche Web-Oberfläche mit erweiterten Funktionen.
