@@ -774,7 +774,7 @@
                 this.cooldownActive = false;
                 this.cooldownEndTime = null;
                 this.maxStepsPerWindow = 20;
-                this.timeWindow = 10000; // 10 seconds
+                this.timeWindow = 20000; // 20 seconds
                 this.cooldownDuration = 30000; // 30 seconds
             }
 
@@ -881,6 +881,7 @@
                     this.cooldownEndTime = null;
                     this.elements.volUpBtn.disabled = false;
                     this.elements.volUpBtn.style.opacity = '1';
+                    this.elements.volUpBtn.innerHTML = '<span style="font-size: 2rem;">+</span><span>Lauter</span>';
                     this.showMessage('✅ Lautstärke wieder verfügbar!', 'success');
                 }, this.cooldownDuration);
             }
@@ -891,14 +892,11 @@
                 const remainingTime = Math.ceil((this.cooldownEndTime - Date.now()) / 1000);
                 if (remainingTime > 0) {
                     // Update button text with countdown
-                    const originalText = this.elements.volUpBtn.innerHTML;
                     this.elements.volUpBtn.innerHTML = `<span style="font-size: 1.5rem;">⏳</span><span>Warten... ${remainingTime}s</span>`;
                     
                     setTimeout(() => this.updateCooldownTimer(), 1000);
-                } else {
-                    // Restore original button text
-                    this.elements.volUpBtn.innerHTML = '<span style="font-size: 2rem;">+</span><span>Lauter</span>';
                 }
+                // Button text will be restored by the main cooldown timeout
             }
 
             async sendCommand(endpoint, data = {}) {
