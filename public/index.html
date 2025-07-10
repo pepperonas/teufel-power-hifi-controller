@@ -604,6 +604,12 @@
             .stats-grid {
                 grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
             }
+
+            /* Volume controls mobile layout */
+            .volume-controls {
+                grid-template-columns: 1fr;
+                gap: var(--spacing-3);
+            }
         }
     </style>
 </head>
@@ -634,18 +640,18 @@
         <!-- Volume Control -->
         <div class="card">
             <h2 style="text-align: center;">Lautstärke</h2>
-            <div class="grid grid-3" style="gap: var(--spacing-4); align-items: stretch;">
-                <button class="btn btn-danger btn-lg" id="vol-down">
+            <div class="grid grid-3 volume-controls" style="gap: var(--spacing-4); align-items: stretch;">
+                <button class="btn btn-danger btn-lg" id="vol-up">
+                    <span style="font-size: 2rem;">+</span>
+                    <span>Lauter</span>
+                </button>
+                <button class="btn btn-warning btn-lg" id="vol-down">
                     <span style="font-size: 2rem;">−</span>
                     <span>Leiser</span>
                 </button>
-                <button class="btn btn-warning btn-lg" id="mute-toggle">
+                <button class="btn btn-secondary btn-lg" id="mute-toggle">
                     <span style="font-size: 1.5rem;">🔇</span>
                     <span>Stumm</span>
-                </button>
-                <button class="btn btn-secondary btn-lg" id="vol-up">
-                    <span style="font-size: 2rem;">+</span>
-                    <span>Lauter</span>
                 </button>
             </div>
         </div>
@@ -686,10 +692,10 @@
                 <div style="text-align: center;">
                     <h3 style="margin-bottom: var(--spacing-3); text-align: center;">🎵 Bass</h3>
                     <div style="display: flex; flex-direction: column; gap: var(--spacing-2); height: 140px; justify-content: space-between;">
-                        <button class="btn btn-secondary" data-eq="bass" data-action="up" style="min-height: 60px;">
+                        <button class="btn btn-danger" data-eq="bass" data-action="up" style="min-height: 60px;">
                             <span style="font-size: 1.5rem;">+</span>
                         </button>
-                        <button class="btn btn-outline" data-eq="bass" data-action="down" style="min-height: 60px;">
+                        <button class="btn btn-warning" data-eq="bass" data-action="down" style="min-height: 60px;">
                             <span style="font-size: 1.5rem;">−</span>
                         </button>
                     </div>
@@ -697,10 +703,10 @@
                 <div style="text-align: center;">
                     <h3 style="margin-bottom: var(--spacing-3); text-align: center;">🎶 Mitten</h3>
                     <div style="display: flex; flex-direction: column; gap: var(--spacing-2); height: 140px; justify-content: space-between;">
-                        <button class="btn btn-secondary" data-eq="mid" data-action="up" style="min-height: 60px;">
+                        <button class="btn btn-danger" data-eq="mid" data-action="up" style="min-height: 60px;">
                             <span style="font-size: 1.5rem;">+</span>
                         </button>
-                        <button class="btn btn-outline" data-eq="mid" data-action="down" style="min-height: 60px;">
+                        <button class="btn btn-warning" data-eq="mid" data-action="down" style="min-height: 60px;">
                             <span style="font-size: 1.5rem;">−</span>
                         </button>
                     </div>
@@ -708,10 +714,10 @@
                 <div style="text-align: center;">
                     <h3 style="margin-bottom: var(--spacing-3); text-align: center;">🎼 Höhen</h3>
                     <div style="display: flex; flex-direction: column; gap: var(--spacing-2); height: 140px; justify-content: space-between;">
-                        <button class="btn btn-secondary" data-eq="treble" data-action="up" style="min-height: 60px;">
+                        <button class="btn btn-danger" data-eq="treble" data-action="up" style="min-height: 60px;">
                             <span style="font-size: 1.5rem;">+</span>
                         </button>
-                        <button class="btn btn-outline" data-eq="treble" data-action="down" style="min-height: 60px;">
+                        <button class="btn btn-warning" data-eq="treble" data-action="down" style="min-height: 60px;">
                             <span style="font-size: 1.5rem;">−</span>
                         </button>
                     </div>
@@ -726,11 +732,11 @@
                 <div style="text-align: center;">
                     <h3 style="margin-bottom: var(--spacing-3);">🔊 Balance</h3>
                     <div style="display: flex; gap: var(--spacing-2);">
-                        <button class="btn btn-warning" data-balance="left">
+                        <button class="btn btn-primary" data-balance="left">
                             <span style="font-size: 1.2rem;">←</span>
                             <span>Links</span>
                         </button>
-                        <button class="btn btn-warning" data-balance="right">
+                        <button class="btn btn-primary" data-balance="right">
                             <span>Rechts</span>
                             <span style="font-size: 1.2rem;">→</span>
                         </button>
