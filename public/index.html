@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Primary Meta Tags -->
+    <title>Teufel Power HiFi Controller - Moderne IR-Fernbedienung via Raspberry Pi</title>
+    <meta name="title" content="Teufel Power HiFi Controller - Moderne IR-Fernbedienung via Raspberry Pi">
+    <meta name="description" content="Moderne Web-App zur vollständigen Kontrolle Ihres Teufel Power HiFi Systems. Lautstärke, EQ-Einstellungen, Eingänge und mehr. Responsive Design mit Dark Theme.">
+    <meta name="keywords" content="Teufel, Power HiFi, IR-Fernbedienung, Raspberry Pi, Web Controller, Audio Control, EQ, Lautstärke">
+    <meta name="author" content="Teufel HiFi Control App">
+    <meta name="robots" content="index, follow">
+    <meta name="language" content="German">
+    <meta name="revisit-after" content="7 days">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="http://localhost:5002/">
+    <meta property="og:title" content="Teufel Power HiFi Controller - Moderne IR-Fernbedienung">
+    <meta property="og:description" content="Moderne Web-App zur vollständigen Kontrolle Ihres Teufel Power HiFi Systems mit EQ-Einstellungen, Lautstärke und Eingängen.">
+    <meta property="og:site_name" content="Teufel HiFi Control">
+    <meta property="og:locale" content="de_DE">
+    <meta property="og:image" content="/teufel-power-hifi-controller-unofficial.jpg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Teufel Power HiFi Controller - Moderne Web-Fernbedienung">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:site" content="@TeufelAudio">
+    <meta name="twitter:creator" content="@mrx3k1">
+    <meta name="twitter:title" content="Teufel Power HiFi Controller - Moderne IR-Fernbedienung">
+    <meta name="twitter:description" content="Moderne Web-App zur vollständigen Kontrolle Ihres Teufel Power HiFi Systems mit EQ-Einstellungen, Lautstärke und Eingängen via Raspberry Pi.">
+    <meta name="twitter:image" content="/teufel-power-hifi-controller-unofficial.jpg">
+    <meta name="twitter:image:alt" content="Teufel Power HiFi Controller Interface">
+    
+    <!-- Additional Social Media Meta Tags -->
+    <meta property="article:author" content="mrx3k1">
+    <meta property="article:section" content="Technology">
+    <meta property="article:tag" content="Teufel, HiFi, Controller, Raspberry Pi, IR Remote, Web App">
+    
+    <!-- LinkedIn -->
+    <meta property="og:image:type" content="image/jpeg">
+    <meta name="linkedin:owner" content="mrx3k1">
+    
+    <!-- Schema.org Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Teufel Power HiFi Controller",
+      "description": "Moderne Web-App zur vollständigen Kontrolle von Teufel Power HiFi Systemen via Raspberry Pi mit IR-Fernbedienung",
+      "url": "http://localhost:5002",
+      "image": "/teufel-power-hifi-controller-unofficial.jpg",
+      "author": {
+        "@type": "Person",
+        "name": "mrx3k1"
+      },
+      "applicationCategory": "Utility",
+      "operatingSystem": "Web Browser",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "EUR"
+      },
+      "keywords": "Teufel, Power HiFi, Controller, Raspberry Pi, IR Remote, Web App, Audio Control",
+      "inLanguage": "de-DE",
+      "screenshot": "/teufel-power-hifi-controller-unofficial.jpg",
+      "softwareVersion": "1.0.0",
+      "datePublished": "2024-01-01",
+      "publisher": {
+        "@type": "Organization",
+        "name": "mrx3k1 Projects"
+      }
+    }
+    </script>
+    
+    <!-- Additional SEO Meta Tags -->
+    <meta name="rating" content="general">
+    <meta name="distribution" content="global">
+    <meta name="classification" content="Technology, Audio, Smart Home">
+    <meta name="subject" content="Teufel Power HiFi Remote Control via Raspberry Pi">
+    <meta name="copyright" content="© 2024 mrx3k1 - Unofficial Teufel Controller">
+    <meta name="generator" content="Custom Node.js Application">
+    
+    <!-- Geo Location (Optional) -->
+    <meta name="geo.region" content="DE">
+    <meta name="geo.placename" content="Germany">
+    
+    <!-- App Store Meta Tags -->
+    <meta name="apple-itunes-app" content="app-id=none, app-argument=http://localhost:5002/">
+    <meta name="google-play-app" content="app-id=none">
+    
+    <!-- Cache Control -->
+    <meta http-equiv="Cache-Control" content="public, max-age=3600">
+    <meta http-equiv="Expires" content="Thu, 01 Jan 2025 00:00:00 GMT">
+
+    <!-- Technical Meta Tags -->
+    <meta name="application-name" content="Teufel HiFi Control">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Teufel Control">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#2B2E3B">
+    <meta name="color-scheme" content="dark">
+
+    <!-- Favicon & App Icons -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/android-chrome-192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/android-chrome-512x512.png">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- Microsoft Tiles -->
+    <meta name="msapplication-TileColor" content="#2B2E3B">
+    <meta name="msapplication-TileImage" content="/android-chrome-192x192.png">
+    <meta name="msapplication-config" content="/browserconfig.xml">
+
+    <style>
+        :root {
+            /* Farbschema */
+            --background-dark: #2B2E3B;
+            --background-darker: #252830;
+            --card-background: #343845;
+            --accent-blue: #688db1;
+            --accent-green: #9cb68f;
+            --accent-red: #e16162;
+            --accent-orange: #e4a853;
+            --text-primary: #d1d5db;
+            --text-secondary: #9ca3af;
+
+            /* Schatten */
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.25);
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.15);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15);
+
+            /* Abstände */
+            --spacing-1: 0.25rem;
+            --spacing-2: 0.5rem;
+            --spacing-3: 0.75rem;
+            --spacing-4: 1rem;
+            --spacing-6: 1.5rem;
+            --spacing-8: 2rem;
+            --spacing-12: 3rem;
+            --spacing-16: 4rem;
+
+            /* Rundungen */
+            --radius-sm: 0.25rem;
+            --radius: 0.5rem;
+            --radius-lg: 0.75rem;
+            --radius-xl: 1rem;
+
+            /* Typografie */
+            --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--background-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .header {
+            background-color: var(--background-darker);
+            padding: var(--spacing-6);
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h1 {
+            font-size: 1.875rem;
+            font-weight: 700;
+            text-align: center;
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-2);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: var(--spacing-6);
+        }
+
+        .card {
+            background-color: var(--card-background);
+            border-radius: var(--radius-xl);
+            padding: var(--spacing-6);
+            margin-bottom: var(--spacing-6);
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .card h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: var(--spacing-4);
+            color: var(--accent-blue);
+        }
+
+        .card h3 {
+            font-size: 1.25rem;
+            font-weight: 500;
+            margin-bottom: var(--spacing-3);
+            color: var(--text-primary);
+        }
+
+        .grid {
+            display: grid;
+            gap: var(--spacing-6);
+        }
+
+        .grid-2 {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .grid-3 {
+            grid-template-columns: 1fr 1fr 1fr;
+        }
+
+        .grid-4 {
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+        }
+
+        .grid-symmetric {
+            display: grid;
+            place-items: center;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: var(--spacing-3) var(--spacing-6);
+            border: none;
+            border-radius: var(--radius);
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-2);
+            flex-direction: column;
+            text-align: center;
+            min-height: 80px;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-blue);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #5a7a9a;
+            transform: translateY(-1px);
+            box-shadow: var(--shadow);
+        }
+
+        .btn-secondary {
+            background-color: var(--accent-green);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #8aa47d;
+            transform: translateY(-1px);
+            box-shadow: var(--shadow);
+        }
+
+        .btn-danger {
+            background-color: var(--accent-red);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #d04f50;
+            transform: translateY(-1px);
+            box-shadow: var(--shadow);
+        }
+
+        .btn-warning {
+            background-color: var(--accent-orange);
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background-color: #d89441;
+            transform: translateY(-1px);
+            box-shadow: var(--shadow);
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            color: var(--accent-blue);
+            border: 2px solid var(--accent-blue);
+        }
+
+        .btn-outline:hover {
+            background-color: var(--accent-blue);
+            color: white;
+        }
+
+        .btn-outline.active {
+            background-color: var(--accent-blue);
+            color: white;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-sm {
+            padding: var(--spacing-2) var(--spacing-4);
+            font-size: 0.875rem;
+        }
+
+        .btn-lg {
+            padding: var(--spacing-4) var(--spacing-8);
+            font-size: 1.125rem;
+        }
+
+        /* Slider */
+        .slider-container {
+            margin-bottom: var(--spacing-4);
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-2);
+        }
+
+        .slider {
+            width: 100%;
+            height: 6px;
+            border-radius: var(--radius);
+            background: var(--background-darker);
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--accent-blue);
+            cursor: pointer;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.3s ease;
+        }
+
+        .slider::-webkit-slider-thumb:hover {
+            background: #5a7a9a;
+            transform: scale(1.1);
+            box-shadow: var(--shadow);
+        }
+
+        .slider::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--accent-blue);
+            cursor: pointer;
+            border: none;
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* Status-Anzeigen */
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-2);
+            padding: var(--spacing-2) var(--spacing-4);
+            border-radius: var(--radius);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .status-connected {
+            background-color: rgba(156, 182, 143, 0.2);
+            color: var(--accent-green);
+        }
+
+        .status-disconnected {
+            background-color: rgba(225, 97, 98, 0.2);
+            color: var(--accent-red);
+        }
+
+        .status-indicator::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: currentColor;
+        }
+
+        /* Power Button */
+        .power-button {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            background: var(--background-darker);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            margin: 0 auto var(--spacing-4);
+            position: relative;
+            box-shadow: var(--shadow);
+        }
+
+        .power-button:hover {
+            border-color: var(--accent-blue);
+            transform: scale(1.05);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .power-button.on {
+            border-color: var(--accent-green);
+            background: rgba(156, 182, 143, 0.2);
+            box-shadow: 0 0 20px rgba(156, 182, 143, 0.5);
+        }
+
+        .power-button svg {
+            width: 40px;
+            height: 40px;
+            stroke: var(--text-secondary);
+            fill: none;
+            stroke-width: 2.5;
+            transition: fill 0.3s ease;
+        }
+
+        .power-button.on svg {
+            stroke: var(--accent-green);
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: var(--spacing-4);
+            margin-bottom: var(--spacing-6);
+        }
+
+        .stat-card {
+            background: var(--background-darker);
+            padding: var(--spacing-4);
+            border-radius: var(--radius);
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent-blue);
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-top: var(--spacing-1);
+        }
+
+        /* Message */
+        .message {
+            position: fixed;
+            bottom: var(--spacing-6);
+            right: var(--spacing-6);
+            padding: var(--spacing-4) var(--spacing-6);
+            border-radius: var(--radius);
+            color: white;
+            font-weight: 500;
+            box-shadow: var(--shadow-lg);
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s ease;
+            z-index: 1000;
+            max-width: 400px;
+        }
+
+        .message.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .message.success {
+            background-color: var(--accent-green);
+        }
+
+        .message.error {
+            background-color: var(--accent-red);
+        }
+
+        .message.info {
+            background-color: var(--accent-blue);
+        }
+
+        .message.warning {
+            background-color: var(--accent-orange);
+        }
+
+        /* Toggle Switch */
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-3);
+            margin-top: var(--spacing-3);
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 60px;
+            height: 32px;
+            background: var(--background-darker);
+            border-radius: 16px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .toggle-switch.active {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 22px;
+            height: 22px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s ease;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .toggle-switch.active::after {
+            transform: translateX(28px);
+        }
+
+        .toggle-label {
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            user-select: none;
+            cursor: pointer;
+        }
+
+        /* Loading */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--accent-blue);
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: var(--spacing-4);
+            }
+
+            .grid-2,
+            .grid-3,
+            .grid-4 {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            }
+
+            /* Volume controls mobile layout */
+            .volume-controls {
+                grid-template-columns: 1fr;
+                gap: var(--spacing-3);
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>🔊 Teufel Power HiFi Controller</h1>
+        <p style="text-align: center; color: var(--text-secondary); margin-top: var(--spacing-2);">
+            IR-Fernbedienung via Raspberry Pi
+        </p>
+    </header>
+
+    <div class="container">
+        <!-- Power Control -->
+        <div class="card">
+            <h2 style="text-align: center;">Stromversorgung</h2>
+            <div style="display: flex; justify-content: center; align-items: center; flex-direction: column;">
+                <div class="power-button" id="power-btn">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 2v10m-6.5-5.5C3.5 8.5 2 11 2 14c0 5.5 4.5 10 10 10s10-4.5 10-10c0-3-1.5-5.5-3.5-7.5"/>
+                    </svg>
+                </div>
+                <p style="text-align: center; color: var(--text-secondary); margin-top: var(--spacing-3);">
+                    Power Ein/Aus
+                </p>
+            </div>
+        </div>
+
+        <!-- Volume Control -->
+        <div class="card">
+            <h2 style="text-align: center;">Lautstärke</h2>
+            <div class="grid grid-3 volume-controls" style="gap: var(--spacing-4); align-items: stretch;">
+                <button class="btn btn-danger btn-lg" id="vol-up">
+                    <span style="font-size: 2rem;">+</span>
+                    <span>Lauter</span>
+                </button>
+                <button class="btn btn-warning btn-lg" id="vol-down">
+                    <span style="font-size: 2rem;">−</span>
+                    <span>Leiser</span>
+                </button>
+                <button class="btn btn-secondary btn-lg" id="mute-toggle">
+                    <span style="font-size: 1.5rem;">🔇</span>
+                    <span>Stumm</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Input Selection -->
+        <div class="card">
+            <h2 style="text-align: center;">Eingänge</h2>
+            <div class="grid grid-2" style="gap: var(--spacing-3); align-items: stretch; margin-bottom: var(--spacing-3);">
+                <button class="btn btn-primary btn-lg" data-input="AUX">
+                    <span style="font-size: 1.5rem;">🎧</span>
+                    <span>AUX</span>
+                </button>
+                <button class="btn btn-primary btn-lg" data-input="BLUETOOTH">
+                    <span style="font-size: 1.5rem;">🔵</span>
+                    <span>Bluetooth</span>
+                </button>
+            </div>
+            <div class="grid grid-3" style="gap: var(--spacing-3); align-items: stretch;">
+                <button class="btn btn-primary btn-lg" data-input="LINE">
+                    <span style="font-size: 1.5rem;">📻</span>
+                    <span>Line</span>
+                </button>
+                <button class="btn btn-primary btn-lg" data-input="OPTICAL">
+                    <span style="font-size: 1.5rem;">💿</span>
+                    <span>Optical</span>
+                </button>
+                <button class="btn btn-primary btn-lg" data-input="USB">
+                    <span style="font-size: 1.5rem;">💾</span>
+                    <span>USB</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- EQ Controls -->
+        <div class="card">
+            <h2 style="text-align: center;">Equalizer</h2>
+            <div class="grid grid-3" style="gap: var(--spacing-4); align-items: stretch;">
+                <div style="text-align: center;">
+                    <h3 style="margin-bottom: var(--spacing-3); text-align: center;">🎵 Bass</h3>
+                    <div style="display: flex; flex-direction: column; gap: var(--spacing-2); height: 140px; justify-content: space-between;">
+                        <button class="btn btn-danger" data-eq="bass" data-action="up" style="min-height: 60px;">
+                            <span style="font-size: 1.5rem;">+</span>
+                        </button>
+                        <button class="btn btn-warning" data-eq="bass" data-action="down" style="min-height: 60px;">
+                            <span style="font-size: 1.5rem;">−</span>
+                        </button>
+                    </div>
+                </div>
+                <div style="text-align: center;">
+                    <h3 style="margin-bottom: var(--spacing-3); text-align: center;">🎶 Mitten</h3>
+                    <div style="display: flex; flex-direction: column; gap: var(--spacing-2); height: 140px; justify-content: space-between;">
+                        <button class="btn btn-danger" data-eq="mid" data-action="up" style="min-height: 60px;">
+                            <span style="font-size: 1.5rem;">+</span>
+                        </button>
+                        <button class="btn btn-warning" data-eq="mid" data-action="down" style="min-height: 60px;">
+                            <span style="font-size: 1.5rem;">−</span>
+                        </button>
+                    </div>
+                </div>
+                <div style="text-align: center;">
+                    <h3 style="margin-bottom: var(--spacing-3); text-align: center;">🎼 Höhen</h3>
+                    <div style="display: flex; flex-direction: column; gap: var(--spacing-2); height: 140px; justify-content: space-between;">
+                        <button class="btn btn-danger" data-eq="treble" data-action="up" style="min-height: 60px;">
+                            <span style="font-size: 1.5rem;">+</span>
+                        </button>
+                        <button class="btn btn-warning" data-eq="treble" data-action="down" style="min-height: 60px;">
+                            <span style="font-size: 1.5rem;">−</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Balance & Navigation -->
+        <div class="card">
+            <h2>Balance & Navigation</h2>
+            <div class="grid grid-2" style="gap: var(--spacing-4);">
+                <div style="text-align: center;">
+                    <h3 style="margin-bottom: var(--spacing-3);">🔊 Balance</h3>
+                    <div style="display: flex; gap: var(--spacing-2);">
+                        <button class="btn btn-primary" data-balance="left">
+                            <span style="font-size: 1.2rem;">←</span>
+                            <span>Links</span>
+                        </button>
+                        <button class="btn btn-primary" data-balance="right">
+                            <span>Rechts</span>
+                            <span style="font-size: 1.2rem;">→</span>
+                        </button>
+                    </div>
+                </div>
+                <div style="text-align: center;">
+                    <h3 style="margin-bottom: var(--spacing-3);">🎛️ Navigation</h3>
+                    <div style="display: flex; gap: var(--spacing-2);">
+                        <button class="btn btn-primary" data-nav="left">
+                            <span style="font-size: 1.2rem;">←</span>
+                            <span>Links</span>
+                        </button>
+                        <button class="btn btn-primary" data-nav="right">
+                            <span>Rechts</span>
+                            <span style="font-size: 1.2rem;">→</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="message" id="message"></div>
+
+    <script>
+        class TeufelController {
+            constructor() {
+                this.initializeElements();
+                this.attachEventListeners();
+                this.initializeVolumeRateLimit();
+            }
+
+            initializeVolumeRateLimit() {
+                this.volumeSteps = [];
+                this.cooldownActive = false;
+                this.cooldownEndTime = null;
+                this.maxStepsPerWindow = 20;
+                this.timeWindow = 20000; // 20 seconds
+                this.cooldownDuration = 30000; // 30 seconds
+            }
+
+            initializeElements() {
+                this.elements = {
+                    powerBtn: document.getElementById('power-btn'),
+                    volUpBtn: document.getElementById('vol-up'),
+                    volDownBtn: document.getElementById('vol-down'),
+                    muteToggle: document.getElementById('mute-toggle'),
+                    inputBtns: document.querySelectorAll('[data-input]'),
+                    eqBtns: document.querySelectorAll('[data-eq]'),
+                    balanceBtns: document.querySelectorAll('[data-balance]'),
+                    navBtns: document.querySelectorAll('[data-nav]'),
+                    message: document.getElementById('message')
+                };
+            }
+
+            attachEventListeners() {
+                // Power control
+                this.elements.powerBtn.addEventListener('click', () => this.sendCommand('power'));
+
+                // Volume control
+                this.elements.volUpBtn.addEventListener('click', () => this.handleVolumeUp());
+                this.elements.volDownBtn.addEventListener('click', () => this.sendCommand('volume', { action: 'down' }));
+                this.elements.muteToggle.addEventListener('click', () => this.sendCommand('mute'));
+
+                // Input selection
+                this.elements.inputBtns.forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const input = e.currentTarget.dataset.input;
+                        this.sendCommand('input', { input });
+                    });
+                });
+
+                // EQ controls
+                this.elements.eqBtns.forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const eq = e.currentTarget.dataset.eq;
+                        const action = e.currentTarget.dataset.action;
+                        this.sendCommand('eq', { type: eq, action });
+                    });
+                });
+
+                // Balance controls
+                this.elements.balanceBtns.forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const direction = e.currentTarget.dataset.balance;
+                        this.sendCommand('balance', { direction });
+                    });
+                });
+
+                // Navigation controls
+                this.elements.navBtns.forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const direction = e.currentTarget.dataset.nav;
+                        this.sendCommand('navigation', { direction });
+                    });
+                });
+            }
+
+            handleVolumeUp() {
+                // Check if cooldown is active
+                if (this.cooldownActive) {
+                    const remainingTime = Math.ceil((this.cooldownEndTime - Date.now()) / 1000);
+                    this.showMessage(`🕐 Cooldown aktiv! Noch ${remainingTime}s warten...`, 'info');
+                    return;
+                }
+
+                // Add current timestamp to volume steps
+                const now = Date.now();
+                this.volumeSteps.push(now);
+
+                // Remove steps older than time window
+                this.volumeSteps = this.volumeSteps.filter(time => now - time < this.timeWindow);
+
+                // Check if rate limit exceeded
+                if (this.volumeSteps.length > this.maxStepsPerWindow) {
+                    this.startCooldown();
+                    return;
+                }
+
+                // Send the volume up command
+                this.sendCommand('volume', { action: 'up' });
+            }
+
+            startCooldown() {
+                this.cooldownActive = true;
+                this.cooldownEndTime = Date.now() + this.cooldownDuration;
+                this.volumeSteps = []; // Clear volume steps
+
+                // Disable volume up button visually
+                this.elements.volUpBtn.disabled = true;
+                this.elements.volUpBtn.style.opacity = '0.5';
+
+                // Show funny warning message
+                this.showMessage('🎵 Cooldown aktiviert! Wir wollen es nicht übertreiben! 😄', 'warning');
+
+                // Start countdown timer
+                this.updateCooldownTimer();
+
+                // Re-enable after cooldown
+                setTimeout(() => {
+                    this.cooldownActive = false;
+                    this.cooldownEndTime = null;
+                    this.elements.volUpBtn.disabled = false;
+                    this.elements.volUpBtn.style.opacity = '1';
+                    this.elements.volUpBtn.innerHTML = '<span style="font-size: 2rem;">+</span><span>Lauter</span>';
+                    this.showMessage('✅ Lautstärke wieder verfügbar!', 'success');
+                }, this.cooldownDuration);
+            }
+
+            updateCooldownTimer() {
+                if (!this.cooldownActive) return;
+
+                const remainingTime = Math.ceil((this.cooldownEndTime - Date.now()) / 1000);
+                if (remainingTime > 0) {
+                    // Update button text with countdown
+                    this.elements.volUpBtn.innerHTML = `<span style="font-size: 1.5rem;">⏳</span><span>Warten... ${remainingTime}s</span>`;
+                    
+                    setTimeout(() => this.updateCooldownTimer(), 1000);
+                }
+                // Button text will be restored by the main cooldown timeout
+            }
+
+            async sendCommand(endpoint, data = {}) {
+                try {
+                    const response = await fetch(`/api/${endpoint}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        this.showSuccessMessage(endpoint, data);
+                    } else {
+                        this.showMessage('Befehl fehlgeschlagen', 'error');
+                    }
+                } catch (error) {
+                    this.showMessage('Verbindungsfehler', 'error');
+                }
+            }
+
+            showSuccessMessage(endpoint, data) {
+                let message = 'Befehl gesendet';
+                
+                switch (endpoint) {
+                    case 'power':
+                        message = '⚡ Power-Signal gesendet';
+                        break;
+                    case 'volume':
+                        message = data.action === 'up' ? '🔊 Lautstärke +' : '🔉 Lautstärke −';
+                        break;
+                    case 'mute':
+                        message = '🔇 Stumm-Signal gesendet';
+                        break;
+                    case 'input':
+                        message = `📡 ${data.input} ausgewählt`;
+                        break;
+                    case 'eq':
+                        const eqName = data.type === 'bass' ? 'Bass' : data.type === 'mid' ? 'Mitten' : 'Höhen';
+                        message = `🎚️ ${eqName} ${data.action === 'up' ? '+' : '−'}`;
+                        break;
+                    case 'balance':
+                        message = `⚖️ Balance ${data.direction === 'left' ? '←' : '→'}`;
+                        break;
+                    case 'navigation':
+                        message = `🎛️ Navigation ${data.direction === 'left' ? '←' : '→'}`;
+                        break;
+                }
+                
+                this.showMessage(message, 'success');
+            }
+
+            showMessage(text, type = 'info') {
+                this.elements.message.textContent = text;
+                this.elements.message.className = `message ${type} show`;
+
+                setTimeout(() => {
+                    this.elements.message.classList.remove('show');
+                }, 3000);
+            }
+        }
+
+        // Initialize the application
+        const controller = new TeufelController();
+    </script>
+</body>
+</html>
