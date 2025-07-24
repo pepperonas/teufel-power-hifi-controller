@@ -1,5 +1,9 @@
 # Teufel Power HiFi IR Controller
 
+<div align="center">
+  <img src="teufel-power-hifi-controller-unofficial.jpg" alt="Teufel Power HiFi System" width="800"/>
+</div>
+
 🔊 Arduino, Raspberry Pi und Web-Interface Infrarot-Fernbedienung für Teufel Power HiFi Systeme
 
 ## Preview
