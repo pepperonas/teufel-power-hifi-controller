@@ -174,6 +174,8 @@ python3 teufel-power-hifi-controller.py --list
 ### Benutzeroberfläche
 - **Dark Theme**: Moderne, augenfreundliche Benutzeroberfläche
 - **Responsive Design**: Optimiert für Desktop, Tablet und Smartphone
+  - **Desktop Layout**: Stumm | Leiser | Lauter (horizontal)
+  - **Mobile Layout**: Lauter | Leiser | Stumm (vertikal)
 - **Touch-optimiert**: Große Buttons für einfache Bedienung auf mobilen Geräten
 - **PWA-Support**: Kann als App auf dem Homescreen installiert werden
 

@@ -607,8 +607,22 @@
 
             /* Volume controls mobile layout */
             .volume-controls {
-                grid-template-columns: 1fr;
+                display: flex !important;
+                flex-direction: column;
                 gap: var(--spacing-3);
+            }
+            
+            /* Reorder volume buttons for mobile: up, down, mute */
+            .volume-controls #vol-up {
+                order: 1;
+            }
+            
+            .volume-controls #vol-down {
+                order: 2;
+            }
+            
+            .volume-controls #mute-toggle {
+                order: 3;
             }
         }
     </style>
@@ -641,17 +655,17 @@
         <div class="card">
             <h2 style="text-align: center;">Lautstärke</h2>
             <div class="grid grid-3 volume-controls" style="gap: var(--spacing-4); align-items: stretch;">
-                <button class="btn btn-danger btn-lg" id="vol-up">
-                    <span style="font-size: 2rem;">+</span>
-                    <span>Lauter</span>
+                <button class="btn btn-secondary btn-lg" id="mute-toggle">
+                    <span style="font-size: 1.5rem;">🔇</span>
+                    <span>Stumm</span>
                 </button>
                 <button class="btn btn-warning btn-lg" id="vol-down">
                     <span style="font-size: 2rem;">−</span>
                     <span>Leiser</span>
                 </button>
-                <button class="btn btn-secondary btn-lg" id="mute-toggle">
-                    <span style="font-size: 1.5rem;">🔇</span>
-                    <span>Stumm</span>
+                <button class="btn btn-danger btn-lg" id="vol-up">
+                    <span style="font-size: 2rem;">+</span>
+                    <span>Lauter</span>
                 </button>
             </div>
         </div>
