@@ -1,8 +1,8 @@
 {
   "pythonScriptPath": "/home/martin/apps/powerhifi-controller/teufel-power-hifi-controller.py",
   "lastCommand": "CMD_VOLUME_DOWN",
-  "volume": 35,
+  "volume": 22,
   "currentInput": "AUX",
-  "muted": true,
-  "powered": false
+  "muted": false,
+  "powered": true
 }

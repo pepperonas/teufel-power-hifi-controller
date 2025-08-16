@@ -123,7 +123,7 @@
 
     <style>
         :root {
-            /* Farbschema */
+            /* Dark Theme (Standard) */
             --background-dark: #2B2E3B;
             --background-darker: #252830;
             --card-background: #343845;
@@ -157,6 +157,22 @@
 
             /* Typografie */
             --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+        }
+
+        /* Light Theme */
+        [data-theme="light"] {
+            --background-dark: #f8fafc;
+            --background-darker: #f1f5f9;
+            --card-background: #ffffff;
+            --accent-blue: #3b82f6;
+            --accent-green: #22c55e;
+            --accent-red: #ef4444;
+            --accent-orange: #f59e0b;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         }
 
         * {
@@ -203,6 +219,10 @@
             margin-bottom: var(--spacing-6);
             box-shadow: var(--shadow);
             border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        [data-theme="light"] .card {
+            border: 1px solid rgba(0, 0, 0, 0.1);
         }
 
         .card h2 {
@@ -448,8 +468,8 @@
         }
 
         .power-button svg {
-            width: 40px;
-            height: 40px;
+            width: 60px;
+            height: 60px;
             stroke: var(--text-secondary);
             fill: none;
             stroke-width: 2.5;
@@ -545,6 +565,10 @@
             border: 2px solid rgba(255, 255, 255, 0.2);
         }
 
+        [data-theme="light"] .toggle-switch {
+            border: 2px solid rgba(0, 0, 0, 0.2);
+        }
+
         .toggle-switch.active {
             background: var(--accent-blue);
             border-color: var(--accent-blue);
@@ -629,7 +653,15 @@
 </head>
 <body>
     <header class="header">
-        <h1>🔊 Teufel Power HiFi Controller</h1>
+        <div style="position: relative;">
+            <h1>🔊 Teufel Power HiFi Controller</h1>
+            <div style="position: absolute; top: 0; right: 0; display: flex; align-items: center; gap: var(--spacing-2);">
+                <span style="font-size: 0.9rem; color: var(--text-secondary);">🌙</span>
+                <div class="toggle-switch" id="theme-toggle">
+                </div>
+                <span style="font-size: 0.9rem; color: var(--text-secondary);">☀️</span>
+            </div>
+        </div>
         <p style="text-align: center; color: var(--text-secondary); margin-top: var(--spacing-2);">
             IR-Fernbedienung via Raspberry Pi
         </p>
@@ -642,7 +674,7 @@
             <div style="display: flex; justify-content: center; align-items: center; flex-direction: column;">
                 <div class="power-button" id="power-btn">
                     <svg viewBox="0 0 24 24">
-                        <path d="M12 2v10m-6.5-5.5C3.5 8.5 2 11 2 14c0 5.5 4.5 10 10 10s10-4.5 10-10c0-3-1.5-5.5-3.5-7.5"/>
+                        <path d="M12 3v10M5.25 8.25A7.5 7.5 0 1 0 18.75 8.25" stroke-linecap="round"></path>
                     </svg>
                 </div>
                 <p style="text-align: center; color: var(--text-secondary); margin-top: var(--spacing-3);">
@@ -666,35 +698,6 @@
                 <button class="btn btn-danger btn-lg" id="vol-up">
                     <span style="font-size: 2rem;">+</span>
                     <span>Lauter</span>
-                </button>
-            </div>
-        </div>
-
-        <!-- Input Selection -->
-        <div class="card">
-            <h2 style="text-align: center;">Eingänge</h2>
-            <div class="grid grid-2" style="gap: var(--spacing-3); align-items: stretch; margin-bottom: var(--spacing-3);">
-                <button class="btn btn-primary btn-lg" data-input="AUX">
-                    <span style="font-size: 1.5rem;">🎧</span>
-                    <span>AUX</span>
-                </button>
-                <button class="btn btn-primary btn-lg" data-input="BLUETOOTH">
-                    <span style="font-size: 1.5rem;">🔵</span>
-                    <span>Bluetooth</span>
-                </button>
-            </div>
-            <div class="grid grid-3" style="gap: var(--spacing-3); align-items: stretch;">
-                <button class="btn btn-primary btn-lg" data-input="LINE">
-                    <span style="font-size: 1.5rem;">📻</span>
-                    <span>Line</span>
-                </button>
-                <button class="btn btn-primary btn-lg" data-input="OPTICAL">
-                    <span style="font-size: 1.5rem;">💿</span>
-                    <span>Optical</span>
-                </button>
-                <button class="btn btn-primary btn-lg" data-input="USB">
-                    <span style="font-size: 1.5rem;">💾</span>
-                    <span>USB</span>
                 </button>
             </div>
         </div>
@@ -736,6 +739,35 @@
                         </button>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Input Selection -->
+        <div class="card">
+            <h2 style="text-align: center;">Eingänge</h2>
+            <div class="grid grid-2" style="gap: var(--spacing-3); align-items: stretch; margin-bottom: var(--spacing-3);">
+                <button class="btn btn-primary btn-lg" data-input="AUX">
+                    <span style="font-size: 1.5rem;">🎧</span>
+                    <span>AUX</span>
+                </button>
+                <button class="btn btn-primary btn-lg" data-input="BLUETOOTH">
+                    <span style="font-size: 1.5rem;">🔵</span>
+                    <span>Bluetooth</span>
+                </button>
+            </div>
+            <div class="grid grid-3" style="gap: var(--spacing-3); align-items: stretch;">
+                <button class="btn btn-primary btn-lg" data-input="LINE">
+                    <span style="font-size: 1.5rem;">📻</span>
+                    <span>Line</span>
+                </button>
+                <button class="btn btn-primary btn-lg" data-input="OPTICAL">
+                    <span style="font-size: 1.5rem;">💿</span>
+                    <span>Optical</span>
+                </button>
+                <button class="btn btn-primary btn-lg" data-input="USB">
+                    <span style="font-size: 1.5rem;">💾</span>
+                    <span>USB</span>
+                </button>
             </div>
         </div>
 
@@ -786,6 +818,7 @@
                 this.initializeElements();
                 this.attachEventListeners();
                 this.initializeVolumeRateLimit();
+                this.initializeTheme();
             }
 
             initializeVolumeRateLimit() {
@@ -807,7 +840,8 @@
                     eqBtns: document.querySelectorAll('[data-eq]'),
                     balanceBtns: document.querySelectorAll('[data-balance]'),
                     navBtns: document.querySelectorAll('[data-nav]'),
-                    message: document.getElementById('message')
+                    message: document.getElementById('message'),
+                    themeToggle: document.getElementById('theme-toggle')
                 };
             }
 
@@ -852,6 +886,9 @@
                         this.sendCommand('navigation', { direction });
                     });
                 });
+
+                // Theme toggle
+                this.elements.themeToggle.addEventListener('click', () => this.toggleTheme());
             }
 
             handleVolumeUp() {
@@ -975,6 +1012,40 @@
                 setTimeout(() => {
                     this.elements.message.classList.remove('show');
                 }, 3000);
+            }
+
+            initializeTheme() {
+                // Load saved theme or default to dark
+                const savedTheme = localStorage.getItem('theme') || 'dark';
+                this.setTheme(savedTheme);
+            }
+
+            toggleTheme() {
+                const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                this.setTheme(newTheme);
+            }
+
+            setTheme(theme) {
+                document.documentElement.setAttribute('data-theme', theme);
+                localStorage.setItem('theme', theme);
+                
+                // Update toggle switch
+                if (theme === 'light') {
+                    this.elements.themeToggle.classList.add('active');
+                } else {
+                    this.elements.themeToggle.classList.remove('active');
+                }
+
+                // Update meta theme-color
+                const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+                if (metaThemeColor) {
+                    metaThemeColor.setAttribute('content', theme === 'light' ? '#f8fafc' : '#2B2E3B');
+                }
+
+                // Show theme change message
+                const themeMessage = theme === 'light' ? '☀️ Helles Theme aktiviert' : '🌙 Dunkles Theme aktiviert';
+                this.showMessage(themeMessage, 'info');
             }
         }
 
