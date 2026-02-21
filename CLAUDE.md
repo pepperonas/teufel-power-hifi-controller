@@ -26,11 +26,18 @@ This project provides IR remote control for Teufel Power HiFi systems using both
 
 ### Raspberry Pi
 ```bash
-# Start pigpio daemon first
-sudo pigpiod
+# Option 1: Web Interface (Recommended)
+npm install
+npm start
+# Access via http://localhost:5002 or http://[pi-ip]:5002
 
-# Run the controller (requires root for GPIO access)
-sudo python3 teufel-power-hifi-controller.py
+# Option 2: Command Line (Direct Python execution)
+python3 teufel-power-hifi-controller.py --command CMD_POWER
+# Note: Script runs without sudo but shows performance warning
+
+# Option 3: With pigpio daemon for best performance
+sudo pigpiod
+sudo python3 teufel-power-hifi-controller.py --command CMD_POWER
 ```
 
 ## IR Protocol Details
@@ -65,5 +72,28 @@ The Raspberry Pi version uses hardware PWM on GPIO 12 for precise 38kHz carrier 
 ## Development Requirements
 
 - **Arduino**: IRremote library 4.x, VS1838B receiver, IR LED
-- **Raspberry Pi**: pigpio library, GPIO 12 hardware PWM capability
+- **Raspberry Pi**: pigpio library (optional), GPIO 12 hardware PWM capability
+- **Web Interface**: Node.js, Express.js, modern browser
 - **Testing**: IR receiver module for signal verification
+
+## Common Issues and Solutions
+
+### Path Configuration Issues
+- **Problem**: 500 Internal Server Error in Web Interface
+- **Cause**: Incorrect Python script path in `controller-config.json`
+- **Solution**: Ensure path matches actual file location (e.g., `/home/pi/apps/powerhifi-controller/teufel-power-hifi-controller.py`)
+
+### Permission Issues
+- **Problem**: "sudo: a terminal is required to read the password"
+- **Cause**: Server.js tries to run Python script with sudo
+- **Solution**: Remove sudo requirement from server.js `executeCommand()` function
+
+### pigpio Daemon Issues
+- **Problem**: GPIO access warnings or failures
+- **Cause**: pigpio daemon not running or insufficient permissions
+- **Solution**: Script works without pigpio daemon but with performance warnings. For best performance: `sudo pigpiod`
+
+### Node.js Server Issues
+- **Problem**: Server not responding on port 5002
+- **Cause**: Process crashed or not started properly
+- **Solution**: Check with `pm2 status` or restart: `pm2 restart powerhifi-controller`

@@ -77,7 +77,7 @@ function executeCommand(command, repeats = 1) {
     return new Promise((resolve, reject) => {
         const pythonPath = config.pythonScriptPath;
         const repeatArg = repeats > 1 ? ` --repeats ${repeats}` : '';
-        const scriptCommand = `sudo python3 ${pythonPath} --command ${command}${repeatArg}`;
+        const scriptCommand = `python3 ${pythonPath} --command ${command}${repeatArg}`;
         
         console.log(`Executing: ${scriptCommand}`);
         

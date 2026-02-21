@@ -27,8 +27,8 @@ module.exports = {
       // Startup configuration
       startup_script: {
         description: 'Teufel Power HiFi Controller - Auto-start nach Boot',
-        user: 'martin',
-        cwd: '/home/martin/apps/powerhifi-controller'
+        user: 'pi',
+        cwd: '/home/pi/apps/powerhifi-controller'
       }
     }
   ]
