@@ -21,36 +21,31 @@ Web-based IR remote controller for Teufel Power HiFi systems via Raspberry Pi, f
 ## Wiring Diagram
 
 ```
-    Raspberry Pi                     IR LED Circuit
-    ┌──────────────┐                 ┌─────────────────────┐
-    │              │                 │                     │
-    │   GPIO 12 ●──┼───────┐        │   ┌───►│──┐        │
-    │   (Pin 32)   │       │        │   │  IR LED │        │
-    │   HW PWM     │       │        │   │        │        │
-    │              │    ┌───┴───┐    │   │   R    │        │
-    │              │    │  NPN  │    │   │  (47Ω) │        │
-    │              │    │  BCE  │────┼───┘        │        │
-    │              │    └───┬───┘    │            │        │
-    │      GND ●───┼────────┘       │            │        │
-    │   (Pin 34)   │                │      GND ──┘        │
-    │              │                │                     │
-    │      3.3V ●──┼────────────────┤──► VCC               │
-    │   (Pin 1)    │                │                     │
-    └──────────────┘                └─────────────────────┘
+    Raspberry Pi                         IR Transmitter Circuit
+    ┌──────────────┐
+    │              │                     ┌──[47Ω]──[IR LED]──┐
+    │   3.3V  (1) ─┼─────────────────────┘                    │ C
+    │              │                                       ┌──┴──┐
+    │  GPIO12(32) ─┼──────────[1kΩ]─────────────────── B ──┤ NPN │
+    │   (HW PWM)   │                                       └──┬──┘
+    │              │                                          │ E
+    │   GND  (34) ─┼──────────────────────────────────────────┘
+    │              │
+    └──────────────┘
 
-    Pin Mapping:
-    ┌──────────┬──────────┬─────────────────────────────────┐
-    │ Pi Pin   │ GPIO     │ Connection                      │
-    ├──────────┼──────────┼─────────────────────────────────┤
-    │ Pin 32   │ GPIO 12  │ IR LED (via NPN, Hardware PWM)  │
-    │ Pin 34   │ GND      │ Common ground                   │
-    └──────────┴──────────┴─────────────────────────────────┘
+    NEC Protocol · 38kHz carrier · 33% duty cycle
+    Library: pigpio (hardware PWM for precise carrier timing)
 
-    IR Protocol: NEC, 38kHz carrier, 33% duty cycle
-    Library: pigpio (hardware PWM for precise timing)
+    ┌──────────┬──────────┬──────────────────────────────────┐
+    │ Pi Pin   │ GPIO     │ Connection                       │
+    ├──────────┼──────────┼──────────────────────────────────┤
+    │ Pin 1    │ 3.3V     │ IR LED anode (via 47Ω resistor)  │
+    │ Pin 32   │ GPIO 12  │ NPN base (via 1kΩ resistor)      │
+    │ Pin 34   │ GND      │ NPN emitter                      │
+    └──────────┴──────────┴──────────────────────────────────┘
 ```
 
-> **Note:** GPIO 12 is used because it supports hardware PWM, which is required for the precise 38kHz IR carrier frequency. Uses pigpio daemon for GPIO access.
+> **Note:** GPIO 12 is required because it supports hardware PWM for the precise 38kHz IR carrier frequency. The NPN transistor amplifies the signal for sufficient IR range.
 
 ## Quick Start
 
