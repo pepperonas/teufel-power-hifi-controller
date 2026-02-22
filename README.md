@@ -16,7 +16,41 @@ Web-based IR remote controller for Teufel Power HiFi systems via Raspberry Pi, f
 - **Web Dashboard** — Control power, volume, and mute from any device on the network
 - **REST API** — Programmatic access for home automation integration
 - **Responsive UI** — Mobile-friendly interface for quick access
-- **Reverse Engineered** — Custom IR protocol analysis for full system control
+- **Reverse Engineered** — Custom NEC protocol analysis for full system control
+
+## Wiring Diagram
+
+```
+    Raspberry Pi                     IR LED Circuit
+    ┌──────────────┐                 ┌─────────────────────┐
+    │              │                 │                     │
+    │   GPIO 12 ●──┼───────┐        │   ┌───►│──┐        │
+    │   (Pin 32)   │       │        │   │  IR LED │        │
+    │   HW PWM     │       │        │   │        │        │
+    │              │    ┌───┴───┐    │   │   R    │        │
+    │              │    │  NPN  │    │   │  (47Ω) │        │
+    │              │    │  BCE  │────┼───┘        │        │
+    │              │    └───┬───┘    │            │        │
+    │      GND ●───┼────────┘       │            │        │
+    │   (Pin 34)   │                │      GND ──┘        │
+    │              │                │                     │
+    │      3.3V ●──┼────────────────┤──► VCC               │
+    │   (Pin 1)    │                │                     │
+    └──────────────┘                └─────────────────────┘
+
+    Pin Mapping:
+    ┌──────────┬──────────┬─────────────────────────────────┐
+    │ Pi Pin   │ GPIO     │ Connection                      │
+    ├──────────┼──────────┼─────────────────────────────────┤
+    │ Pin 32   │ GPIO 12  │ IR LED (via NPN, Hardware PWM)  │
+    │ Pin 34   │ GND      │ Common ground                   │
+    └──────────┴──────────┴─────────────────────────────────┘
+
+    IR Protocol: NEC, 38kHz carrier, 33% duty cycle
+    Library: pigpio (hardware PWM for precise timing)
+```
+
+> **Note:** GPIO 12 is used because it supports hardware PWM, which is required for the precise 38kHz IR carrier frequency. Uses pigpio daemon for GPIO access.
 
 ## Quick Start
 
@@ -46,7 +80,7 @@ npm start
 
 - **Backend** — Node.js, Express
 - **Frontend** — HTML5, CSS3, JavaScript
-- **Hardware** — IR LED transmitter, LIRC
+- **Hardware** — IR LED, NPN transistor, pigpio
 - **Process Manager** — PM2
 
 ## Author
