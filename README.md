@@ -3,10 +3,33 @@
 <div align="center">
 
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
+![Version](https://img.shields.io/badge/version-1.0.0-orange.svg)
 ![Node.js](https://img.shields.io/badge/Node.js-18+-339933.svg?logo=nodedotjs&logoColor=white)
 ![Platform](https://img.shields.io/badge/Platform-Raspberry%20Pi-C51A4A.svg?logo=raspberrypi&logoColor=white)
+![Hardware PWM](https://img.shields.io/badge/Hardware_PWM-GPIO_12-purple.svg)
+![Express](https://img.shields.io/badge/Express-4.x-000000.svg?logo=express&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.9+-3776AB.svg?logo=python&logoColor=white)
+
+![IR Protocol](https://img.shields.io/badge/IR_Protocol-NEC-red.svg)
+![Frequency](https://img.shields.io/badge/Carrier-38kHz-brightgreen.svg)
+![Code Quality](https://img.shields.io/badge/code_style-standard-brightgreen.svg)
+![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)
+![GitHub Issues](https://img.shields.io/github/issues/pepperonas/teufel-power-hifi-controller.svg)
+![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
+
+![pigpio](https://img.shields.io/badge/pigpio-hardware_PWM-FF6600.svg)
+![PM2](https://img.shields.io/badge/PM2-production_ready-2B037A?logo=pm2&logoColor=white)
+![REST API](https://img.shields.io/badge/REST_API-5_endpoints-blue.svg)
+![Mobile Ready](https://img.shields.io/badge/mobile-responsive-purple?logo=smartphone&logoColor=white)
+![Lines of Code](https://img.shields.io/badge/LOC-1.5k+-informational)
 
 Web-based IR remote controller for Teufel Power HiFi systems via Raspberry Pi, featuring power, volume, and mute control through a modern web interface.
+
+<br>
+
+<a href="https://www.paypal.com/donate/?business=martinpaush@gmail.com&currency_code=EUR">
+  <img src="https://img.shields.io/badge/Sponsor_this_project-PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white" alt="Donate via PayPal">
+</a>
 
 </div>
 
