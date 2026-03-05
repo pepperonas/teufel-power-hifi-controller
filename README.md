@@ -2,6 +2,8 @@
 
 <div align="center">
 
+![Teufel Power HiFi Controller](images/banner.png)
+
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Version](https://img.shields.io/badge/version-1.0.0-orange.svg)
 ![Node.js](https://img.shields.io/badge/Node.js-18+-339933.svg?logo=nodedotjs&logoColor=white)
