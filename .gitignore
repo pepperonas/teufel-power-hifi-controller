@@ -5,18 +5,58 @@ package-lock.json
 # Logs
 logs/
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
 
-# Cache
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
 
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Environment
+# PM2
+.pm2/
+
+# Environment variables
 .env
+.env.local
+
+# Build outputs
+dist/
+build/
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Claude artifacts
+.claude/
+.lgd-*
+
+# Backup files
+*.backup
+*.bak
+*.old
