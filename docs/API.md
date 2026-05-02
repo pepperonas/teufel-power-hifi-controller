@@ -145,16 +145,17 @@ POST /api/input
 #### Request Body
 ```json
 {
-  "source": "aux" | "line" | "optical" | "usb" | "bluetooth"
+  "input": "AUX" | "LINE" | "OPTICAL" | "USB" | "BLUETOOTH"
 }
 ```
+
+Input names are uppercase. The controller maps them to the corresponding `CMD_*` IR command and persists the selection in `controller-config.json`.
 
 #### Response
 ```json
 {
   "success": true,
-  "command": "CMD_AUX",
-  "input": "aux"
+  "currentInput": "AUX"
 }
 ```
 
@@ -341,7 +342,7 @@ curl -X POST http://localhost:5002/api/volume \
 # Select AUX input
 curl -X POST http://localhost:5002/api/input \
   -H "Content-Type: application/json" \
-  -d '{"source":"aux"}'
+  -d '{"input":"AUX"}'
 ```
 
 ### JavaScript (Fetch)
@@ -379,7 +380,7 @@ print(response.json())
 # Select input
 response = requests.post(
   'http://localhost:5002/api/input',
-  json={'source': 'bluetooth'}
+  json={'input': 'BLUETOOTH'}
 )
 print(response.json())
 ```
@@ -397,6 +398,6 @@ axios.post('http://localhost:5002/api/volume', { action: 'up' })
   .then(res => console.log(res.data));
 
 // Select input
-axios.post('http://localhost:5002/api/input', { source: 'optical' })
+axios.post('http://localhost:5002/api/input', { input: 'OPTICAL' })
   .then(res => console.log(res.data));
 ```

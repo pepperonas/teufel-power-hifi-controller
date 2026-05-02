@@ -175,7 +175,7 @@ Cathode (-)        →       GND
 | `/api/power` | POST | - | Toggle power on/off | `{ "success": true, "state": "on" }` |
 | `/api/volume` | POST | `{ "action": "up\|down" }` | Adjust volume | `{ "success": true, "action": "up" }` |
 | `/api/mute` | POST | - | Toggle mute | `{ "success": true, "muted": true }` |
-| `/api/input` | POST | `{ "source": "aux\|line\|optical\|usb\|bluetooth" }` | Select input | `{ "success": true, "input": "aux" }` |
+| `/api/input` | POST | `{ "input": "AUX\|LINE\|OPTICAL\|USB\|BLUETOOTH" }` | Select input | `{ "success": true, "currentInput": "AUX" }` |
 
 ### Python CLI Arguments
 
