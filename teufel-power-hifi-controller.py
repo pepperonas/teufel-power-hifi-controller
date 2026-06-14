@@ -10,7 +10,13 @@ import pigpio
 import time
 import sys
 import os
+import fcntl
 import argparse
+
+# Gemeinsamer Lock: pigpiod-Waves sind global (wave_clear löscht ALLE Waves).
+# Parallele Aufrufe wuerden sich gegenseitig die Wave loeschen -> 'non existent
+# wave id'. Daher serialisieren wir den eigentlichen IR-Sendevorgang.
+IR_LOCK_PATH = '/tmp/teufel-ir.lock'
 
 # Setze Prozesspriorität auf Maximum
 try:
@@ -328,10 +334,15 @@ class TeufelMacros(TeufelIRRemote):
             time.sleep(0.05)
 
 def execute_command(command_name, repeats=1):
-    """Führt einen einzelnen Befehl aus"""
+    """Führt einen einzelnen Befehl aus (serialisiert via flock)"""
+    lock_file = None
     try:
+        # Exklusiver Lock, damit nur ein IR-Sendevorgang gleichzeitig laeuft.
+        lock_file = open(IR_LOCK_PATH, 'w')
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+
         remote = TeufelIRRemote()
-        
+
         if command_name in COMMANDS:
             if repeats > 1:
                 remote.send_repeating(command_name, repeats)
@@ -349,6 +360,9 @@ def execute_command(command_name, repeats=1):
     finally:
         if 'remote' in locals():
             del remote
+        if lock_file is not None:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+            lock_file.close()
 
 if __name__ == "__main__":
     # Argument parser für Command-Line-Interface
