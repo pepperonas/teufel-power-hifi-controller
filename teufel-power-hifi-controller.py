@@ -167,7 +167,16 @@ class TeufelIRRemote:
         
         # Stop bit
         add_carrier(self.NEC_BIT_MARK)
-        
+
+        # NEC repeat codes: a real remote sends the frame plus "still held"
+        # repeat bursts. Appending two makes reception far more reliable over a
+        # weak IR link WITHOUT registering multiple presses (it's one hold).
+        for _ in range(2):
+            add_space(40000)               # ~40 ms gap between bursts
+            add_carrier(self.NEC_HDR_MARK) # 9000 µs
+            add_space(2250)                # repeat-code space (half of 4500)
+            add_carrier(self.NEC_BIT_MARK) # 560 µs
+
         # Wave erstellen und senden
         self.pi.wave_add_generic(carrier_pulses)
         wave_id = self.pi.wave_create()
