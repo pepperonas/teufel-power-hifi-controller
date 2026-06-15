@@ -1,5 +1,12 @@
 # Teufel Power HiFi Controller
 
+> **⚡ Update 2026-06 — Stack & UI**
+>
+> - **Backend:** Python/**Flask** mit persistentem **pigpio**-Handle (migriert von Node/Express). Läuft als **systemd-Service** `powerhifi-controller` (kein PM2 mehr). Die bewährte NEC-IR-Logik (`teufel-power-hifi-controller.py`, GPIO 12) wird in-process genutzt — kein Subprozess pro Klick. ~29 MB RSS.
+> - **UI:** **Material Design 3 Expressive** (tonale Dark-Surfaces, vibrante Akzente, XL-Shapes, MD3-Switches/-Slider) + **Spring-Animationen** (gestaffelte Karten-Entrance, atmende aktive Buttons).
+> - **Deploy:** `git pull && sudo systemctl restart powerhifi-controller` · Logs: `journalctl -u powerhifi-controller -f`
+
+
 <div align="center">
 
 ![Teufel Power HiFi Controller](images/banner.png)
