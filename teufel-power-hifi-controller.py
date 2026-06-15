@@ -68,6 +68,7 @@ class TeufelIRRemote:
         # Setze GPIO Mode
         self.pi.set_mode(IR_PIN, pigpio.OUTPUT)
         self.pi.write(IR_PIN, 0)
+        self.pi.set_pad_strength(0, 16)  # max 16mA: staerkeres IR-Signal
         
         # NEC Timing in Mikrosekunden
         self.NEC_HDR_MARK = 9000
@@ -130,7 +131,7 @@ class TeufelIRRemote:
         # Helper: Füge Carrier-Burst hinzu
         def add_carrier(duration_us):
             cycles = int(duration_us * self.FREQ / 1000000)
-            on_time = int(self.period * 0.33)  # 33% duty
+            on_time = int(self.period * 0.50)  # 33% duty
             off_time = self.period - on_time
             
             for _ in range(cycles):
