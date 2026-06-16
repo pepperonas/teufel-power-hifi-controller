@@ -649,6 +649,174 @@
                 order: 3;
             }
         }
+
+        /* =====================================================================
+           Material Design 3 Expressive — Reskin (2026-06-16)
+           Additiver Override: Tokens/Shapes/Type/Motion. Markup & JS unberührt.
+           Konsistent mit den übrigen Smart-Home-UIs (md3-expressive.css).
+           ===================================================================== */
+        :root {
+            --md-primary: #aac7ff;
+            --md-on-primary: #08305f;
+            --md-outline-variant: #44474e;
+
+            /* App-Tokens → MD3 dunkle Tonal-Surfaces + vibrante Akzente */
+            --background-dark: #111318;
+            --background-darker: #191c20;
+            --card-background: #1d2024;
+            --accent-blue: #aac7ff;
+            --accent-green: #7fd79b;
+            --accent-red: #ffb4ab;
+            --accent-orange: #f5c777;
+            --text-primary: #e2e2e9;
+            --text-secondary: #c4c6d0;
+            /* On-Farben für gefüllte Akzent-Buttons (dunkler Text auf hellem Ton) */
+            --on-blue: #08305f;
+            --on-green: #00391f;
+            --on-red: #690005;
+            --on-orange: #412d00;
+
+            /* Expressive Shapes */
+            --radius-sm: 8px;
+            --radius: 16px;
+            --radius-lg: 20px;
+            --radius-xl: 28px;
+
+            /* Expressive Spring (spatial = Overshoot) + Effects-Easing */
+            --md-ease-spatial: linear(0,0.009 1.2%,0.035 2.5%,0.158 6%,0.793 18.4%,0.984 23%,1.07 27%,1.104 31.5%,1.103 35%,1.07 41%,1.013 50%,0.991 57%,0.998 75%,1);
+            --md-ease-effects: cubic-bezier(0.2,0,0,1);
+
+            --font-family: "Roboto Flex","Roboto",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+        }
+
+        [data-theme="light"] {
+            --background-dark: #f9f9ff;
+            --background-darker: #eef0f7;
+            --card-background: #ffffff;
+            --accent-blue: #415f91;
+            --accent-green: #1f6b3f;
+            --accent-red: #ba1a1a;
+            --accent-orange: #8a5300;
+            --text-primary: #191c20;
+            --text-secondary: #44474e;
+            --md-outline-variant: #c4c6d0;
+            --on-blue: #ffffff;
+            --on-green: #ffffff;
+            --on-red: #ffffff;
+            --on-orange: #ffffff;
+        }
+
+        /* ---- Surfaces ---- */
+        .header {
+            background: var(--card-background);
+            border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+            box-shadow: 0 2px 14px rgba(0,0,0,.30);
+        }
+        .header h1 { font-weight: 800; letter-spacing: -.02em; }
+        .card {
+            border-radius: var(--radius-xl);
+            border: 1px solid var(--md-outline-variant);
+            box-shadow: none;
+            animation: md-enter .5s var(--md-ease-spatial) backwards;
+        }
+        .container .card:nth-child(1) { animation-delay: .04s; }
+        .container .card:nth-child(2) { animation-delay: .10s; }
+        .container .card:nth-child(3) { animation-delay: .16s; }
+        .container .card:nth-child(4) { animation-delay: .22s; }
+        .container .card:nth-child(5) { animation-delay: .28s; }
+        .card h2 { color: var(--accent-blue); font-weight: 700; }
+        .stat-value { color: var(--accent-blue); }
+
+        /* ---- Buttons: MD3 gefüllt, expressive ---- */
+        .btn {
+            border-radius: var(--radius-lg);
+            font-weight: 700; letter-spacing: .01em;
+            transition: transform .4s var(--md-ease-spatial),
+                        background .2s var(--md-ease-effects),
+                        box-shadow .2s var(--md-ease-effects),
+                        filter .2s var(--md-ease-effects);
+        }
+        .btn:active { transform: scale(.95); }
+        .btn-primary  { background: var(--accent-blue);   color: var(--on-blue); }
+        .btn-secondary{ background: var(--accent-green);  color: var(--on-green); }
+        .btn-danger   { background: var(--accent-red);    color: var(--on-red); }
+        .btn-warning  { background: var(--accent-orange); color: var(--on-orange); }
+        .btn-primary:hover, .btn-secondary:hover,
+        .btn-danger:hover, .btn-warning:hover {
+            transform: translateY(-2px); filter: brightness(1.06);
+            box-shadow: 0 6px 18px rgba(0,0,0,.35);
+        }
+        .btn-outline { color: var(--accent-blue); border: 2px solid var(--accent-blue); }
+        .btn-outline:hover, .btn-outline.active { background: var(--accent-blue); color: var(--on-blue); }
+        .btn:disabled { filter: none; transform: none; }
+
+        /* ---- Power-Button ---- */
+        .power-button {
+            border: 3px solid var(--md-outline-variant);
+            background: var(--background-darker);
+            transition: transform .5s var(--md-ease-spatial),
+                        box-shadow .3s var(--md-ease-effects), border-color .3s;
+        }
+        .power-button:hover { transform: scale(1.06); border-color: var(--accent-blue); box-shadow: none; }
+        .power-button.on {
+            border-color: var(--accent-green);
+            background: color-mix(in srgb, var(--accent-green) 22%, transparent);
+            box-shadow: 0 0 28px color-mix(in srgb, var(--accent-green) 50%, transparent);
+            animation: md-breathe 2.6s ease-in-out infinite;
+        }
+        .power-button.on svg { stroke: var(--accent-green); }
+
+        /* ---- Theme-Toggle (MD3-Switch) ---- */
+        .toggle-switch {
+            width: 52px; height: 32px;
+            background: var(--background-darker);
+            border: 2px solid var(--text-secondary); border-radius: 999px;
+        }
+        .toggle-switch::after {
+            top: 7px; left: 7px; width: 16px; height: 16px;
+            background: var(--text-secondary);
+            transition: transform .5s var(--md-ease-spatial), width .2s, height .2s, background .2s;
+        }
+        .toggle-switch.active { background: var(--accent-blue); border-color: var(--accent-blue); }
+        .toggle-switch.active::after { transform: translateX(20px); width: 24px; height: 24px; top: 3px; left: 3px; background: var(--on-blue); }
+
+        /* ---- Status-Dot Puls + Toast ---- */
+        .status-indicator::before { animation: md-pulse 2s ease-in-out infinite; }
+        .message { border-radius: var(--radius); font-weight: 700; }
+        .message.success { background: var(--accent-green);  color: var(--on-green); }
+        .message.error   { background: var(--accent-red);    color: var(--on-red); }
+        .message.info    { background: var(--accent-blue);   color: var(--on-blue); }
+        .message.warning { background: var(--accent-orange); color: var(--on-orange); }
+
+        @keyframes md-enter   { from { opacity: 0; transform: translateY(24px) scale(.96); } to { opacity: 1; transform: none; } }
+        @keyframes md-breathe { 0%,100% { box-shadow: 0 0 22px color-mix(in srgb, var(--accent-green) 40%, transparent); } 50% { box-shadow: 0 0 38px color-mix(in srgb, var(--accent-green) 66%, transparent); } }
+        @keyframes md-pulse   { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .45; transform: scale(.7); } }
+
+        @media (prefers-reduced-motion: reduce) {
+            .card, .power-button.on, .status-indicator::before { animation: none !important; }
+            .btn, .power-button, .toggle-switch::after { transition: none !important; }
+        }
+/* ===== Obsessive-Detail Politur (2026-06-16) — additiv, kein Umbau =====
+   Klammer: tonale MD3-Flächen, die unter dem Cursor Licht fangen. ===== */
+:root{ --ease-quick:cubic-bezier(.2,0,0,1); }
+button:focus-visible,a[href]:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[role="button"]:focus-visible,[tabindex]:not([tabindex="-1"]):focus-visible{
+  outline:2px solid var(--accent-blue, #aac7ff)!important; outline-offset:3px!important;
+}
+button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:focus:not(:focus-visible){ outline:none; }
+h1,h2,h3{ text-wrap:balance; }
+@media (pointer:coarse){ button,.btn,[role="button"]{ min-height:44px; } }
+@media (hover:hover) and (pointer:fine){
+  .card{ position:relative; }
+  .card::after{ content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+    opacity:0; transition:opacity 240ms var(--ease-quick);
+    background:radial-gradient(340px circle at var(--mx,50%) var(--my,50%),
+      color-mix(in srgb, var(--accent-blue,#aac7ff) 13%, transparent), transparent 60%); }
+  .card:hover::after{ opacity:1; }
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{ animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; scroll-behavior:auto!important; }
+  .card::after{ display:none!important; }
+}
     </style>
 </head>
 <body>
@@ -954,7 +1122,7 @@
 
             async sendCommand(endpoint, data = {}) {
                 try {
-                    const response = await fetch(`/api/${endpoint}`, {
+                    const response = await fetch(`api/${endpoint}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(data)
@@ -1049,5 +1217,18 @@
         // Initialize the application
         const controller = new TeufelController();
     </script>
+<script>/* cursor-sheen (gated, rAF-throttled, additiv) */
+(function(){try{
+  if(!matchMedia('(hover:hover) and (pointer:fine)').matches) return;
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var sel='.card',el=null,x=0,y=0,q=false;
+  function f(){q=false;if(!el)return;var r=el.getBoundingClientRect();
+    el.style.setProperty('--mx',((x-r.left)/r.width*100)+'%');
+    el.style.setProperty('--my',((y-r.top)/r.height*100)+'%');}
+  document.addEventListener('pointermove',function(e){
+    var c=e.target.closest?e.target.closest(sel):null;el=c;x=e.clientX;y=e.clientY;
+    if(c&&!q){q=true;requestAnimationFrame(f);}
+  },{passive:true});
+}catch(_){}})();</script>
 </body>
 </html>
