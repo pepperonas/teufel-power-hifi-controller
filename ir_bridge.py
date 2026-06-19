@@ -35,10 +35,11 @@ ser = None
 ser_lock = threading.Lock()
 
 def find_port():
-    if os.path.exists("/dev/teufel-nano"):
-        return os.path.realpath("/dev/teufel-nano")
-    cands = sorted(glob.glob("/dev/ttyUSB*")) + sorted(glob.glob("/dev/ttyACM*"))
-    return cands[0] if cands else "/dev/ttyUSB0"
+    for link in ("/dev/teufel-ir", "/dev/teufel-nano"):
+        if os.path.exists(link):
+            return os.path.realpath(link)
+    cands = sorted(glob.glob("/dev/ttyACM*")) + sorted(glob.glob("/dev/ttyUSB*"))
+    return cands[0] if cands else "/dev/ttyACM0"
 
 def open_serial():
     global ser

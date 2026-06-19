@@ -27,6 +27,7 @@
 ![Lines of Code](https://img.shields.io/badge/LOC-2k+-informational)
 ![Arduino Nano](https://img.shields.io/badge/Arduino_Nano-IR_Bridge-00979D.svg?logo=arduino&logoColor=white)
 ![IRremote](https://img.shields.io/badge/IRremote-4.4.3-009688.svg)
+![UNO R4 WiFi](https://img.shields.io/badge/UNO_R4_WiFi-Renesas_RA4M1-00979D.svg?logo=arduino&logoColor=white)
 ![systemd](https://img.shields.io/badge/systemd-service-30a14e.svg?logo=systemd&logoColor=white)
 ![Serial](https://img.shields.io/badge/Serial-115200_baud-yellow.svg)
 ![NEC Address](https://img.shields.io/badge/NEC_Address-0x5780-critical.svg)
@@ -84,7 +85,7 @@ This controller supports **two interchangeable ways** of putting the 38 kHz NEC 
 Smart-Home Dashboard ──HTTP──> nginx /proxy/hifi/ ──> Node server.js (:5002)
         │
         └─ executeCommand() ──TCP 127.0.0.1:8799──> ir_bridge.py  (systemd service)
-                                                          │  keeps /dev/teufel-nano open
+                                                          │  keeps /dev/teufel-ir open
                                                           └─USB serial 115200─> Arduino Nano
                                                                                     │  IRremote
                                                                                     └─D3─> IR LED ──))) Teufel
@@ -93,7 +94,7 @@ Smart-Home Dashboard ──HTTP──> nginx /proxy/hifi/ ──> Node server.js
 * **`arduino/teufel-ir-serial-bridge/`** — Nano sketch. Reads one HEX command code per line and emits `IrSender.sendNEC(0x5780, code)`.
 * **`ir_bridge.py`** — persistent Python daemon (`teufel-ir-bridge.service`). Holds the serial port open so there is **no per-command Arduino reset** (no ~2 s delay), maps `CMD_*` names → HEX codes and listens on `127.0.0.1:8799`.
 * **`server.js`** — `executeCommand()` sends `CMD_… [repeats]` to the bridge over TCP. The REST API and dashboard are unchanged.
-* **udev** — `udev/99-teufel-nano.rules` gives the Nano a stable `/dev/teufel-nano` symlink that survives USB re-enumeration.
+* **udev** — `udev/99-teufel-ir.rules` gives the Nano a stable `/dev/teufel-ir` symlink that survives USB re-enumeration.
 
 ### Hardware (Nano bridge)
 
@@ -112,11 +113,16 @@ Smart-Home Dashboard ──HTTP──> nginx /proxy/hifi/ ──> Node server.js
 # 1) Flash the Nano (from the Pi via arduino-cli) — IR LED on D3
 arduino-cli core install arduino:avr
 arduino-cli lib install IRremote
+# Option 1 - classic Nano (ATmega328):
 arduino-cli compile --fqbn arduino:avr:nano:cpu=atmega328old arduino/teufel-ir-serial-bridge
-arduino-cli upload  -p /dev/teufel-nano --fqbn arduino:avr:nano:cpu=atmega328old arduino/teufel-ir-serial-bridge
+arduino-cli upload  -p /dev/teufel-ir --fqbn arduino:avr:nano:cpu=atmega328old arduino/teufel-ir-serial-bridge
+# Option 2 - Arduino UNO R4 WiFi (Renesas, USB-C, recommended - rock-solid USB):
+#   arduino-cli core install arduino:renesas_uno
+#   arduino-cli compile --fqbn arduino:renesas_uno:unor4wifi arduino/teufel-ir-serial-bridge
+#   arduino-cli upload  -p /dev/teufel-ir --fqbn arduino:renesas_uno:unor4wifi arduino/teufel-ir-serial-bridge
 
 # 2) Install the udev rule + the bridge daemon
-sudo cp udev/99-teufel-nano.rules /etc/udev/rules.d/
+sudo cp udev/99-teufel-ir.rules /etc/udev/rules.d/
 sudo udevadm control --reload-rules && sudo udevadm trigger
 sudo cp systemd/teufel-ir-bridge.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now teufel-ir-bridge

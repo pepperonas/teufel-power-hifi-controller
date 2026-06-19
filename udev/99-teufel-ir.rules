@@ -1,0 +1,4 @@
+# Arduino UNO R4 WiFi (IR-Sender)
+SUBSYSTEM=="tty", ATTRS{idVendor}=="2341", ATTRS{idProduct}=="1002", SYMLINK+="teufel-ir", MODE="0660", GROUP="dialout"
+# CH340 Arduino Nano (IR-Sender, Fallback)
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", SYMLINK+="teufel-ir teufel-nano", MODE="0660", GROUP="dialout"
