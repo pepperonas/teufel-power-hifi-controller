@@ -817,6 +817,72 @@ h1,h2,h3{ text-wrap:balance; }
   *,*::before,*::after{ animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; scroll-behavior:auto!important; }
   .card::after{ display:none!important; }
 }
+
+/* ============================================================================
+   MD3 Expressive — Motion & Physics (2026-06-20)
+   Additiv: View-Transitions-Theme-Reveal, taktile Ripples, Feder-Physik,
+   Value-Pop, Power-Burst, Toast-Entrance. Markup unberührt.
+   ========================================================================== */
+:root{
+  --md-ease-spring-snappy: linear(0,0.04 2.7%,0.27 8.6%,0.62 14.6%,0.9 20.7%,1.07 27%,1.13 33%,1.11 38%,1.05 45%,0.99 56%,1.0 74%,1);
+  --md-ease-emphasized: cubic-bezier(.2,0,0,1);
+}
+
+/* ---- Theme switch: MD3 Expressive circular reveal (View Transitions API) ---- */
+::view-transition-old(root){ animation: none; z-index: 1; }
+::view-transition-new(root){ animation: none; z-index: 2; }
+html.theme-anim::view-transition-new(root){
+  animation: md-theme-reveal .55s var(--md-ease-spatial) forwards;
+}
+@keyframes md-theme-reveal{
+  from{ clip-path: circle(0 at var(--r-x,100%) var(--r-y,0)); }
+  to  { clip-path: circle(var(--r-end,170vmax) at var(--r-x,100%) var(--r-y,0)); }
+}
+
+/* ---- Tactile MD3 ripple on press ---- */
+.md-ripple-host{ overflow:hidden; }
+.md-ripple{ position:absolute; border-radius:50%; transform:scale(0); pointer-events:none;
+  background:currentColor; opacity:.26; animation: md-ripple-go .58s var(--md-ease-emphasized) forwards; }
+@keyframes md-ripple-go{ to{ transform:scale(2.5); opacity:0; } }
+
+/* ---- Springy press feedback (overshoot back) ---- */
+.btn, .power-button, .toggle-switch{ transition: transform .42s var(--md-ease-spring-snappy),
+  background .2s var(--md-ease-effects), box-shadow .22s var(--md-ease-effects), filter .2s var(--md-ease-effects), border-color .3s; }
+.btn:active{ transform: scale(.93); transition-duration: .09s; }
+.btn-outline.active, .btn.active{ animation: md-state-bounce .5s var(--md-ease-spatial); }
+@keyframes md-state-bounce{ 0%{ transform: scale(.92);} 45%{ transform: scale(1.06);} 100%{ transform: scale(1);} }
+
+/* ---- Value pop when numbers/labels change ---- */
+.stat-value, .volume-value, [data-pop]{ display:inline-block; transform-origin:center;
+  transition: transform .42s var(--md-ease-spatial), color .3s var(--md-ease-effects); }
+.md-pop{ animation: md-value-pop .5s var(--md-ease-spatial); }
+@keyframes md-value-pop{ 0%{ transform: scale(1);} 32%{ transform: scale(1.24);} 100%{ transform: scale(1);} }
+
+/* ---- Power-on burst ring ---- */
+.power-button{ position:relative; }
+.power-button.on::before{ content:""; position:absolute; inset:-4px; border-radius:50%;
+  border:2px solid var(--accent-green); opacity:0; pointer-events:none;
+  animation: md-power-burst .72s var(--md-ease-spatial); }
+@keyframes md-power-burst{ 0%{ transform: scale(.96); opacity:.85;} 100%{ transform: scale(1.55); opacity:0;} }
+
+/* ---- Message/toast: spring entrance ---- */
+.message{ animation: md-toast-in .52s var(--md-ease-spatial); }
+@keyframes md-toast-in{ from{ opacity:0; transform: translateY(18px) scale(.9);} to{ opacity:1; transform:none;} }
+
+/* ---- Card entrance: depth via gentle blur ---- */
+@keyframes md-enter{ from{ opacity:0; transform: translateY(28px) scale(.94); filter: blur(7px);} to{ opacity:1; transform:none; filter: blur(0);} }
+.container .card:nth-child(6){ animation-delay:.34s; }
+.container .card:nth-child(7){ animation-delay:.40s; }
+
+/* ---- Header drop-in ---- */
+.header{ animation: md-header-in .6s var(--md-ease-spatial) backwards; }
+@keyframes md-header-in{ from{ opacity:0; transform: translateY(-22px);} to{ opacity:1; transform:none;} }
+
+@media (prefers-reduced-motion: reduce){
+  html.theme-anim::view-transition-old(root), html.theme-anim::view-transition-new(root){ animation:none!important; }
+  .md-ripple{ display:none!important; }
+  .md-pop, .power-button.on::before, .message, .header, .btn.active, .btn-outline.active{ animation:none!important; }
+}
     </style>
 </head>
 <body>
@@ -1188,7 +1254,24 @@ h1,h2,h3{ text-wrap:balance; }
             toggleTheme() {
                 const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
                 const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-                this.setTheme(newTheme);
+                const apply = () => this.setTheme(newTheme);
+
+                const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+                // MD3 Expressive circular reveal blooming from the toggle (View Transitions API).
+                if (!document.startViewTransition || reduce) { apply(); return; }
+
+                const el = this.elements.themeToggle;
+                const r = el.getBoundingClientRect();
+                const x = r.left + r.width / 2;
+                const y = r.top + r.height / 2;
+                const end = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+                const root = document.documentElement;
+                root.style.setProperty('--r-x', x + 'px');
+                root.style.setProperty('--r-y', y + 'px');
+                root.style.setProperty('--r-end', end + 'px');
+                root.classList.add('theme-anim');
+                const t = document.startViewTransition(apply);
+                t.finished.finally(() => root.classList.remove('theme-anim'));
             }
 
             setTheme(theme) {
@@ -1229,6 +1312,33 @@ h1,h2,h3{ text-wrap:balance; }
     var c=e.target.closest?e.target.closest(sel):null;el=c;x=e.clientX;y=e.clientY;
     if(c&&!q){q=true;requestAnimationFrame(f);}
   },{passive:true});
+}catch(_){}})();</script>
+<script>/* MD3 Expressive: taktile Ripples + Value-Pop (additiv, reduced-motion-aware) */
+(function(){try{
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  // Ripple on press for buttons / interactive controls
+  var RSEL='.btn, .power-button, .toggle-switch, [role="button"]';
+  document.addEventListener('pointerdown', function(e){
+    var t = e.target.closest ? e.target.closest(RSEL) : null;
+    if(!t || t.disabled) return;
+    if(getComputedStyle(t).position === 'static'){ t.style.position='relative'; }
+    t.classList.add('md-ripple-host');
+    var r = t.getBoundingClientRect();
+    var d = Math.max(r.width, r.height) * 1.05;
+    var s = document.createElement('span');
+    s.className='md-ripple';
+    s.style.width = s.style.height = d+'px';
+    s.style.left = (e.clientX - r.left - d/2)+'px';
+    s.style.top  = (e.clientY - r.top  - d/2)+'px';
+    t.appendChild(s);
+    s.addEventListener('animationend', function(){ s.remove(); });
+  }, {passive:true});
+  // Value pop: spring-scale whenever a number/label is swapped in
+  var VSEL='.stat-value, .volume-value, [data-pop]';
+  function pop(el){ el.classList.remove('md-pop'); void el.offsetWidth; el.classList.add('md-pop'); }
+  document.querySelectorAll(VSEL).forEach(function(el){
+    try{ new MutationObserver(function(){ pop(el); }).observe(el, {childList:true, characterData:true, subtree:true}); }catch(_){}
+  });
 }catch(_){}})();</script>
 </body>
 </html>
