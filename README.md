@@ -25,6 +25,17 @@
 ![REST API](https://img.shields.io/badge/REST_API-5_endpoints-blue.svg)
 ![Mobile Ready](https://img.shields.io/badge/mobile-responsive-purple?logo=smartphone&logoColor=white)
 ![Lines of Code](https://img.shields.io/badge/LOC-2k+-informational)
+![Arduino Nano](https://img.shields.io/badge/Arduino_Nano-IR_Bridge-00979D.svg?logo=arduino&logoColor=white)
+![IRremote](https://img.shields.io/badge/IRremote-4.4.3-009688.svg)
+![systemd](https://img.shields.io/badge/systemd-service-30a14e.svg?logo=systemd&logoColor=white)
+![Serial](https://img.shields.io/badge/Serial-115200_baud-yellow.svg)
+![NEC Address](https://img.shields.io/badge/NEC_Address-0x5780-critical.svg)
+![IR Commands](https://img.shields.io/badge/IR_Commands-19-blue.svg)
+![Smart Home](https://img.shields.io/badge/Smart_Home-Dashboard-FF6F00.svg?logo=homeassistant&logoColor=white)
+![Reverse Engineered](https://img.shields.io/badge/Reverse_Engineered-%E2%9C%93-success.svg)
+![Auto Restart](https://img.shields.io/badge/Auto--Restart-systemd-blueviolet.svg)
+![Self Hosted](https://img.shields.io/badge/Self_Hosted-100%25-9cf.svg)
+![Made with](https://img.shields.io/badge/Made_with-%E2%9D%A4-red.svg)
 
 **Complete IR remote control solution for Teufel Power HiFi systems**  
 Web interface, REST API, hardware PWM, and Arduino reverse-engineering tools
@@ -50,6 +61,84 @@ This project provides comprehensive infrared (IR) remote control for Teufel Powe
 - **🎛️ Full Control** — Power, volume, mute, bass, treble, balance, input selection
 - **📱 Mobile Ready** — Touch-optimized interface for phones and tablets
 - **🚀 Production Ready** — PM2 process management with auto-restart
+
+## 🔁 Two IR Back-Ends — pigpio vs. Arduino Nano Serial Bridge
+
+This controller supports **two interchangeable ways** of putting the 38 kHz NEC carrier on the IR LED. The Node.js server, the REST API and the web dashboard are **identical** for both — only the low-level **IR back-end** differs, so you can switch without touching the smart-home integration.
+
+| | **A) pigpio (GPIO 12)** | **B) Arduino Nano Serial Bridge** ✅ *recommended* |
+|---|---|---|
+| Carrier source | Raspberry Pi `pigpiod` DMA wave / hardware PWM | Arduino `IRremote` hardware timer |
+| Emitter pin | Pi **GPIO 12** (pin 32) | Nano **D3** |
+| Reliability | Sensitive to the Pi's PWM peripheral | **Rock-solid**, independent of the Pi |
+| Driver | `teufel-power-hifi-controller.py` (kept as fallback) | `ir_bridge.py` + `arduino/teufel-ir-serial-bridge/` |
+
+> ### 💡 Why the Arduino Nano back-end exists
+> On the maintainer's Raspberry Pi 3 the **onboard audio driver** (`snd_bcm2835`, enabled by `dtparam=audio=on`) claims the **same PWM hardware** that `pigpio` uses to clock the IR carrier. Symptom: the IR LED visibly lights up (a phone camera sees it) but the carrier is shredded into *thousands* of stray pulses, so the Teufel never decodes a clean NEC frame.
+>
+> This was proven with a second Arduino acting as an **IR receiver/analyzer**: the original Teufel remote decoded cleanly as `NEC Address=0x5780 Command=0x48`, while the pigpio output decoded as `Protocol=UNKNOWN` (a single ~5 ms blob). Re-generating the carrier on an **Arduino Nano running IRremote** produces a bit-identical, perfectly-timed signal — literally `IrSender.sendNEC(0x5780, …)` — and the speaker responds reliably across the room.
+
+### Architecture (Nano bridge)
+
+```
+Smart-Home Dashboard ──HTTP──> nginx /proxy/hifi/ ──> Node server.js (:5002)
+        │
+        └─ executeCommand() ──TCP 127.0.0.1:8799──> ir_bridge.py  (systemd service)
+                                                          │  keeps /dev/teufel-nano open
+                                                          └─USB serial 115200─> Arduino Nano
+                                                                                    │  IRremote
+                                                                                    └─D3─> IR LED ──))) Teufel
+```
+
+* **`arduino/teufel-ir-serial-bridge/`** — Nano sketch. Reads one HEX command code per line and emits `IrSender.sendNEC(0x5780, code)`.
+* **`ir_bridge.py`** — persistent Python daemon (`teufel-ir-bridge.service`). Holds the serial port open so there is **no per-command Arduino reset** (no ~2 s delay), maps `CMD_*` names → HEX codes and listens on `127.0.0.1:8799`.
+* **`server.js`** — `executeCommand()` sends `CMD_… [repeats]` to the bridge over TCP. The REST API and dashboard are unchanged.
+* **udev** — `udev/99-teufel-nano.rules` gives the Nano a stable `/dev/teufel-nano` symlink that survives USB re-enumeration.
+
+### Hardware (Nano bridge)
+
+| Nano pin | Connects to |
+|---|---|
+| **D3** | IR-LED signal (via current-limiting resistor, or a transistor driver for more range) |
+| **GND** | IR-LED cathode / emitter-module GND |
+| **5V** | IR transmitter module VCC (only for amplified modules) |
+| **USB** | Raspberry Pi (power **and** serial) |
+
+> ⚠️ **Use a bare 940 nm IR LED** (e.g. **KY-005**). Avoid integrated "smart" emitter units that **filter/smooth** the modulation (some M5Stack-style modules add a capacitor): they turn the clean 38 kHz carrier into a DC-ish blob that no receiver can decode.
+
+### Setup (Nano bridge)
+
+```bash
+# 1) Flash the Nano (from the Pi via arduino-cli) — IR LED on D3
+arduino-cli core install arduino:avr
+arduino-cli lib install IRremote
+arduino-cli compile --fqbn arduino:avr:nano:cpu=atmega328old arduino/teufel-ir-serial-bridge
+arduino-cli upload  -p /dev/teufel-nano --fqbn arduino:avr:nano:cpu=atmega328old arduino/teufel-ir-serial-bridge
+
+# 2) Install the udev rule + the bridge daemon
+sudo cp udev/99-teufel-nano.rules /etc/udev/rules.d/
+sudo udevadm control --reload-rules && sudo udevadm trigger
+sudo cp systemd/teufel-ir-bridge.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now teufel-ir-bridge
+
+# 3) The Node service talks to the bridge automatically (127.0.0.1:8799)
+sudo systemctl restart powerhifi-controller
+```
+
+### Bridge protocol & manual test
+
+The bridge speaks a trivial line protocol on `127.0.0.1:8799` — `CMD_NAME [repeats]` → `OK`:
+
+```bash
+python3 - <<PYEOF
+import socket
+s = socket.create_connection(("127.0.0.1", 8799), timeout=5)
+s.sendall(b"CMD_VOLUME_DOWN 3\n")   # 3 steps down
+print(s.recv(64).decode().strip())  # -> OK
+PYEOF
+```
+
+Supported `CMD_*` names: `CMD_POWER`, `CMD_MUTE`, `CMD_BLUETOOTH`, `CMD_VOLUME_UP`, `CMD_VOLUME_DOWN`, `CMD_LEFT`, `CMD_RIGHT`, `CMD_BASS_UP/DOWN`, `CMD_MID_UP/DOWN`, `CMD_TREBLE_UP/DOWN`, `CMD_AUX`, `CMD_LINE`, `CMD_OPT`, `CMD_USB`, `CMD_BAL_LEFT/RIGHT`.
 
 ## Quick Start
 

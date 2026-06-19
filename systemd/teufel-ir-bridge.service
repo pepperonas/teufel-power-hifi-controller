@@ -1,0 +1,14 @@
+[Unit]
+Description=Teufel IR Serial Bridge (Arduino Nano + IRremote -> NEC 0x5780)
+After=multi-user.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/apps/powerhifi-controller
+ExecStart=/usr/bin/python3 /home/pi/apps/powerhifi-controller/ir_bridge.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

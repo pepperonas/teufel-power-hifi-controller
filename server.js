@@ -3,6 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const { exec } = require('child_process');
+const net = require('net');
 
 const app = express();
 const PORT = process.env.PORT || 5002;
@@ -72,34 +73,43 @@ let config = loadConfig();
 // Middleware
 app.use(express.json());
 
-// Execute Python script command
+// IR-Befehl ueber die persistente Serial-Bridge (Arduino Nano + IRremote, NEC 0x5780).
+// Frueher: sudo python3 + pigpio (teufel-power-hifi-controller.py) - bleibt als Fallback im Repo.
+const IR_BRIDGE_HOST = process.env.IR_BRIDGE_HOST || "127.0.0.1";
+const IR_BRIDGE_PORT = parseInt(process.env.IR_BRIDGE_PORT || "8799", 10);
+const IR_NL = String.fromCharCode(10);
+
 function executeCommand(command, repeats = 1) {
     return new Promise((resolve, reject) => {
-        const pythonPath = config.pythonScriptPath;
-        const repeatArg = repeats > 1 ? ` --repeats ${repeats}` : '';
-        const scriptCommand = `sudo python3 ${pythonPath} --command ${command}${repeatArg}`;
-        
-        console.log(`Executing: ${scriptCommand}`);
-        
-        exec(scriptCommand, (error, stdout, stderr) => {
-            if (error) {
-                console.error(`Error: ${error}`);
-                reject(error);
-                return;
-            }
-            
-            if (stderr) {
-                console.error(`stderr: ${stderr}`);
-            }
-            
-            console.log(`stdout: ${stdout}`);
-            
-            // Update config based on command
-            config.lastCommand = command;
-            saveConfig(config);
-            
-            resolve(stdout);
+        const sock = net.connect(IR_BRIDGE_PORT, IR_BRIDGE_HOST);
+        let resp = "";
+        let done = false;
+        const finish = (err, val) => {
+            if (done) return;
+            done = true;
+            sock.destroy();
+            if (err) { console.error("IR-Bridge Fehler: " + err.message); reject(err); }
+            else { resolve(val); }
+        };
+        sock.setTimeout(5000);
+        sock.on("connect", () => {
+            console.log("IR -> " + command + " x" + repeats);
+            sock.write(command + " " + repeats + IR_NL);
         });
+        sock.on("data", (d) => {
+            resp += d.toString();
+            if (resp.indexOf(IR_NL) >= 0) {
+                if (resp.trim().indexOf("OK") === 0) {
+                    config.lastCommand = command;
+                    saveConfig(config);
+                    finish(null, resp.trim());
+                } else {
+                    finish(new Error(resp.trim()));
+                }
+            }
+        });
+        sock.on("timeout", () => finish(new Error("IR bridge timeout")));
+        sock.on("error", (e) => finish(e));
     });
 }
 
