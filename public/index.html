@@ -832,7 +832,7 @@ h1,h2,h3{ text-wrap:balance; }
 ::view-transition-old(root){ animation: none; z-index: 1; }
 ::view-transition-new(root){ animation: none; z-index: 2; }
 html.theme-anim::view-transition-new(root){
-  animation: md-theme-reveal .55s var(--md-ease-spatial) forwards;
+  animation: md-theme-reveal 1.15s var(--md-ease-effects) forwards;
 }
 @keyframes md-theme-reveal{
   from{ clip-path: circle(0 at var(--r-x,100%) var(--r-y,0)); }
@@ -909,7 +909,16 @@ html.theme-anim::view-transition-new(root){
 }
 
 /* ---- Mute active state ---- */
-#mute-toggle.is-muted{ filter: grayscale(.4) brightness(.8); }
+/* Mute aktiv: unmissverständlich ROT + Glow-Puls (statt nur leichtem Grau) */
+#mute-toggle.is-muted{
+  background: var(--accent-red) !important; color: var(--on-red) !important;
+  box-shadow: 0 0 0 2px var(--accent-red), 0 0 24px color-mix(in srgb, var(--accent-red) 60%, transparent);
+  animation: md-mute-pulse 1.5s ease-in-out infinite;
+}
+@keyframes md-mute-pulse{
+  0%,100%{ box-shadow: 0 0 0 2px var(--accent-red), 0 0 16px color-mix(in srgb, var(--accent-red) 45%, transparent); }
+  50%{ box-shadow: 0 0 0 2px var(--accent-red), 0 0 34px color-mix(in srgb, var(--accent-red) 80%, transparent); }
+}
 
 /* ---- Command confirm ring on the pressed button ---- */
 .md-confirm{ position:relative; }
@@ -1113,6 +1122,15 @@ html.theme-anim::view-transition-new(root){
                 this.attachEventListeners();
                 this.initializeVolumeRateLimit();
                 this.initializeTheme();
+                this.loadInitialState();
+            }
+
+            // Spiegelt den persistierten Geraete-State (Power/Eingang/Mute) beim Laden in die UI.
+            async loadInitialState() {
+                try {
+                    const r = await fetch('api/status');
+                    this.applyState('status', await r.json());
+                } catch (_) {}
             }
 
             initializeVolumeRateLimit() {
@@ -1283,7 +1301,12 @@ html.theme-anim::view-transition-new(root){
                             b.classList.toggle('active', b.dataset.input === result.currentInput));
                     }
                     if (typeof result.muted === 'boolean') {
-                        this.elements.muteToggle.classList.toggle('is-muted', result.muted);
+                        const m = this.elements.muteToggle;
+                        m.classList.toggle('is-muted', result.muted);
+                        // Icon + Label spiegeln den Zustand klar: 🔊 Ton an  vs.  🔇 GEMUTET
+                        m.innerHTML = result.muted
+                            ? '<span style="font-size:1.5rem;">🔇</span><span>Gemutet</span>'
+                            : '<span style="font-size:1.5rem;">🔊</span><span>Ton an</span>';
                     }
                 } catch (_) {}
             }

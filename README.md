@@ -28,6 +28,8 @@
 ![Arduino Nano](https://img.shields.io/badge/Arduino_Nano-IR_Bridge-00979D.svg?logo=arduino&logoColor=white)
 ![IRremote](https://img.shields.io/badge/IRremote-4.4.3-009688.svg)
 ![UNO R4 WiFi](https://img.shields.io/badge/UNO_R4_WiFi-Renesas_RA4M1-00979D.svg?logo=arduino&logoColor=white)
+![LED Matrix](https://img.shields.io/badge/LED_Matrix-12%C3%978-red.svg)
+![Disco Data](https://img.shields.io/badge/Live-dB_%2F_BPM-ff2d95.svg)
 ![systemd](https://img.shields.io/badge/systemd-service-30a14e.svg?logo=systemd&logoColor=white)
 ![Serial](https://img.shields.io/badge/Serial-115200_baud-yellow.svg)
 ![NEC Address](https://img.shields.io/badge/NEC_Address-0x5780-critical.svg)
@@ -62,6 +64,8 @@ This project provides comprehensive infrared (IR) remote control for Teufel Powe
 - **🎛️ Full Control** — Power, volume, mute, bass, treble, balance, input selection
 - **📱 Mobile Ready** — Touch-optimized interface for phones and tablets
 - **🚀 Production Ready** — PM2 process management with auto-restart
+- **📟 LED Matrix Readout** — live dB level / BPM on the UNO R4 12×8 matrix (disco data, USB-serial)
+- **✨ MD3 Expressive UI** — animated theme switch + state-reactive, prefers-reduced-motion-aware motion
 
 ## 🔁 Two IR Back-Ends — pigpio vs. Arduino Nano Serial Bridge
 
@@ -145,6 +149,44 @@ PYEOF
 ```
 
 Supported `CMD_*` names: `CMD_POWER`, `CMD_MUTE`, `CMD_BLUETOOTH`, `CMD_VOLUME_UP`, `CMD_VOLUME_DOWN`, `CMD_LEFT`, `CMD_RIGHT`, `CMD_BASS_UP/DOWN`, `CMD_MID_UP/DOWN`, `CMD_TREBLE_UP/DOWN`, `CMD_AUX`, `CMD_LINE`, `CMD_OPT`, `CMD_USB`, `CMD_BAL_LEFT/RIGHT`.
+
+## 📟 LED Matrix Display — live dB level / BPM (UNO R4)
+
+When the IR sender is an **Arduino UNO R4 WiFi**, its built-in **12×8 LED matrix** doubles as a live readout for the `disco-controller` (the mic-driven beat/loudness analyzer running on the same Pi). It shows **exactly one value at a time** — either the **dB loudness level (0–100)** or the **BPM** — with a small on-matrix indicator for the mode. Switched from the smart-home dashboard.
+
+### How the data gets there (performance)
+
+The value travels over the **existing USB serial link** — the same one used for IR — so **no extra wiring** is needed. IR commands and matrix messages are multiplexed on one line; a 2–3-digit value pushed a few times per second at 115200 baud is negligible bandwidth (jumper/I²C would add wiring + 3.3 V↔5 V handling for zero benefit at this data rate).
+
+```
+Dashboard (Disco card) → nginx → Node /api/matrix → ir_bridge.py
+   ir_bridge polls disco-controller :5007 (level / bpm) → pushes value over USB serial → R4 → LED matrix
+```
+
+### Serial protocol (multiplexed)
+
+| Line | Meaning |
+|---|---|
+| `<HEX>` e.g. `48` | IR command → `sendNEC(0x5780, 0x48)` (unchanged) |
+| `m0` / `m1` / `m2` | matrix mode: off / dB-level / BPM |
+| `v<int>` e.g. `v126` | value for the current mode |
+
+IR codes are pure hex digits; `m`/`v` are not, so the sketch tells them apart unambiguously. The matrix renders the number with a compact 3×5 font plus a mode indicator (**block top-left = dB**, **peak top-right = BPM**).
+
+### Control & components
+
+* **Dashboard** — Disco card → **🔢 R4-Matrix** select (**Aus / dB-Pegel / BPM**); reflects the persisted mode on load.
+* **`ir_bridge.py`** — a background poller GETs `disco-controller` `/api/status` *only while a mode is active* (off ⇒ no polling), computes the value (dB → `round(level·100)`, BPM → `bpm`) and pushes it. Mode is set via the TCP command `MATRIX <off|db|bpm>` and persisted in `matrix_mode.txt`.
+* **`server.js`** — `GET` / `POST /api/matrix` ↔ the bridge.
+* **Sketch** — `arduino/teufel-ir-serial-bridge/` renders digits + indicator and keeps IR working alongside (verified: IR + matrix coexist).
+
+## ✨ UI — Material 3 Expressive motion
+
+The web interface uses a cohesive MD3 Expressive motion system, all `prefers-reduced-motion`-guarded:
+
+* **Animated theme switch** — a 1.15 s circular reveal (View Transitions API) blooming from the toggle, matching the other smart-home UIs.
+* **State-reactive visuals** — the live device state (from the API, reflected on load via `/api/status`) drives the UI: the power button breathes/bursts when **on**, the active input glows, and **mute is unmistakable** — green “Ton an” 🔊 ↔ red, pulsing “Gemutet” 🔇.
+* **Micro-interactions** — tactile ripples, spring press, a confirm-ring on success, directional nudges and a staggered card entrance.
 
 ## Quick Start
 
