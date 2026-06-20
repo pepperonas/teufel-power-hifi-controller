@@ -168,12 +168,18 @@ Dashboard (Disco card) → nginx → Node /api/matrix → ir_bridge.py
 | Line | Meaning |
 |---|---|
 | `<HEX>` e.g. `48` | IR command → `sendNEC(0x5780, 0x48)` (unchanged) |
-| `m0` / `m1` / `m2` | matrix mode: off / dB-level / BPM |
+| `m0`..`m7` | matrix mode: 0 off · 1 Pegel · 2 BPM · 3 Smiley · 4 VU-Meter · 5 Herz · 6 Spektrum · 7 Welle |
+| `s<12>` | spectrum column heights (12 chars `0`..`8`), for the Spektrum mode |
 | `v<int>` e.g. `v126` | value for the current mode |
 | `v-1` | idle / silence -> the matrix shows `--` |
 | `f` | beat flash -- a brief frame pulse (BPM mode) |
 
 IR codes are pure hex digits; `m`/`v` are not, so the sketch tells them apart unambiguously. The matrix renders the number with a compact 3×5 font plus a mode indicator (**block top-left = dB**, **peak top-right = BPM**). In **dB mode** the bottom row is a live **level bar** (0–100); during **silence** the matrix shows `--`; and in **BPM mode** the frame **pulses on every detected beat** (`ir_bridge.py` polls faster — ~0.12 s — and emits `f` when the beat counter advances).
+
+### Display modes
+
+Selectable from the dashboard (custom dropdown in the Disco card):
+**Aus**, **Pegel** (level number + bar), **BPM** (number + gentle beat pulse), **Smiley** (winks on the beat), **VU-Meter** (level block + peak-hold), **Herz** (beats with the music), **Spektrum** (12-column live spectrum from the disco bands) and **Welle** (self-running sine wave). Audio-reactive modes are fed by `ir_bridge.py` (level / bpm / beats / spectrum); the beat pulse is rate-limited so fast tempos stay readable.
 
 ### Control & components
 

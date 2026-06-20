@@ -24,7 +24,8 @@ BAUD = 115200
 HOST, TCP_PORT = "127.0.0.1", 8799
 DISCO_URL = "http://127.0.0.1:5007/api/status"
 MATRIX_FILE = "/home/pi/apps/powerhifi-controller/matrix_mode.txt"
-MODE_NUM = {"off": 0, "db": 1, "bpm": 2}
+MODE_NUM = {"off": 0, "db": 1, "pegel": 1, "bpm": 2, "smiley": 3,
+            "vu": 4, "heart": 5, "spektrum": 6, "welle": 7}
 
 CODES = {
     "CMD_POWER": 0x48, "CMD_BLUETOOTH": 0x40, "CMD_MUTE": 0x28,
@@ -43,6 +44,19 @@ matrix_mode = "off"
 _last_value = None
 _last_beats = None
 IDLE_LEVEL = 0.03          # Pegel darunter = Stille -> Matrix zeigt "--"
+FLASH_MIN_GAP = 0.30       # max ~3 Beat-Flashes/s -> ruhigere BPM-/Beat-Anzeige
+_last_flash_ts = 0.0
+_last_spectrum = None
+
+def _needs_beat(m):   return m in ("bpm", "smiley", "heart", "welle")
+def _needs_level(m):  return m in ("db", "pegel", "vu", "smiley", "heart")
+def _downsample12(bands):
+    out = []
+    for i in range(12):
+        a = bands[2*i] if 2*i < len(bands) else 0.0
+        b = bands[2*i+1] if 2*i+1 < len(bands) else 0.0
+        out.append(max(0, min(8, int(round((a + b) / 2.0 * 8)))))
+    return out
 
 def find_port():
     for link in ("/dev/teufel-ir", "/dev/teufel-nano"):
@@ -106,13 +120,17 @@ def save_mode():
         print("Mode-Save-Fehler:", e, flush=True)
 
 def set_matrix_mode(mode):
-    global matrix_mode, _last_value
+    global matrix_mode, _last_value, _last_beats, _last_spectrum
     mode = mode.lower()
+    if mode == "db":
+        mode = "pegel"
     if mode not in MODE_NUM:
         return False
     matrix_mode = mode
     save_mode()
-    _last_value = None                       # erzwingt sofortiges Neu-Senden des Werts
+    _last_value = None                       # erzwingt sofortiges Neu-Senden
+    _last_beats = None
+    _last_spectrum = None
     push_matrix("m%d" % MODE_NUM[mode])      # Indikator/Clear sofort aktualisieren
     return True
 
@@ -126,29 +144,44 @@ def poll_disco():
 def poller():
     """Schiebt periodisch Wert/Beat auf die Matrix, wenn ein Modus aktiv ist.
        Idle (Stille) -> "--"; im BPM-Modus zusaetzlich Beat-Flash + schnelleres Polling."""
-    global _last_value, _last_beats
+    global _last_value, _last_beats, _last_flash_ts, _last_spectrum
     while True:
-        if matrix_mode == "off":
+        m = matrix_mode
+        if m == "off":
             _last_beats = None
             time.sleep(0.6); continue
-        interval = 0.12 if matrix_mode == "bpm" else 0.25
+        interval = 0.10 if m in ("vu", "spektrum") else 0.12
         st = poll_disco()
         if st is not None:
+            now = time.monotonic()
             level = st.get("level", 0.0) or 0.0
             idle = level < IDLE_LEVEL
-            if matrix_mode == "db":
+            # --- Beat-Flash/Puls (rate-limitiert -> ruhig) ---
+            if _needs_beat(m):
+                beats = st.get("beats")
+                if (not idle) and beats is not None and _last_beats is not None and beats > _last_beats \
+                        and (now - _last_flash_ts) >= FLASH_MIN_GAP:
+                    push_matrix("f"); _last_flash_ts = now
+                _last_beats = beats
+            else:
                 _last_beats = None
-                val = -1 if idle else max(0, min(100, int(round(level * 100))))
-            else:  # bpm
+            # --- Primaerwert ---
+            if m == "bpm":
                 bpm = int(round(st.get("bpm", 0) or 0))
                 val = -1 if (idle or bpm <= 0) else bpm
-                beats = st.get("beats")
-                if (not idle) and beats is not None and _last_beats is not None and beats > _last_beats:
-                    push_matrix("f")                 # Beat-Flash (Rahmenpuls)
-                _last_beats = beats
-            if val != _last_value:
-                _last_value = val
-                push_matrix("v%d" % val)
+                # nur bei spuerbarer Aenderung neu senden -> stabile Anzeige
+                if val != _last_value and (val == -1 or _last_value in (None, -1) or abs(val - _last_value) >= 2):
+                    _last_value = val; push_matrix("v%d" % val)
+            elif _needs_level(m):
+                val = -1 if idle else max(0, min(100, int(round(level * 100))))
+                if val != _last_value:
+                    _last_value = val; push_matrix("v%d" % val)
+            # --- Spektrum ---
+            if m == "spektrum":
+                cols = _downsample12(st.get("bands") or [])
+                if cols != _last_spectrum:
+                    _last_spectrum = cols
+                    push_matrix("s" + "".join(str(c) for c in cols))
         time.sleep(interval)
 
 # ---- TCP --------------------------------------------------------------------

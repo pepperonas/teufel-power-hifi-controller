@@ -328,7 +328,7 @@ app.get("/api/matrix", async (req, res) => {
 
 app.post("/api/matrix", async (req, res) => {
     const mode = ((req.body && req.body.mode) || "").toLowerCase();
-    if (!["off", "db", "bpm"].includes(mode)) return res.status(400).json({ error: "Invalid mode" });
+    if (!["off","db","pegel","bpm","smiley","vu","heart","spektrum","welle"].includes(mode)) return res.status(400).json({ error: "Invalid mode" });
     try {
         const r = await bridgeRequest("MATRIX " + mode);
         if (r.startsWith("OK")) res.json({ success: true, mode });
