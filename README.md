@@ -170,8 +170,10 @@ Dashboard (Disco card) → nginx → Node /api/matrix → ir_bridge.py
 | `<HEX>` e.g. `48` | IR command → `sendNEC(0x5780, 0x48)` (unchanged) |
 | `m0` / `m1` / `m2` | matrix mode: off / dB-level / BPM |
 | `v<int>` e.g. `v126` | value for the current mode |
+| `v-1` | idle / silence -> the matrix shows `--` |
+| `f` | beat flash -- a brief frame pulse (BPM mode) |
 
-IR codes are pure hex digits; `m`/`v` are not, so the sketch tells them apart unambiguously. The matrix renders the number with a compact 3×5 font plus a mode indicator (**block top-left = dB**, **peak top-right = BPM**).
+IR codes are pure hex digits; `m`/`v` are not, so the sketch tells them apart unambiguously. The matrix renders the number with a compact 3×5 font plus a mode indicator (**block top-left = dB**, **peak top-right = BPM**). In **dB mode** the bottom row is a live **level bar** (0–100); during **silence** the matrix shows `--`; and in **BPM mode** the frame **pulses on every detected beat** (`ir_bridge.py` polls faster — ~0.12 s — and emits `f` when the beat counter advances).
 
 ### Control & components
 

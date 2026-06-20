@@ -1,8 +1,0 @@
-{
-  "pythonScriptPath": "/home/pi/apps/powerhifi-controller/teufel-power-hifi-controller.py",
-  "lastCommand": "CMD_POWER",
-  "volume": 11,
-  "currentInput": "AUX",
-  "muted": false,
-  "powered": true
-}

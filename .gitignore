@@ -59,4 +59,6 @@ coverage/
 # Backup files
 *.backup
 *.bak
-*.oldmatrix_mode.txt
+*.old
+matrix_mode.txt
+controller-config.json

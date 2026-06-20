@@ -41,6 +41,8 @@ ser = None
 ser_lock = threading.Lock()
 matrix_mode = "off"
 _last_value = None
+_last_beats = None
+IDLE_LEVEL = 0.03          # Pegel darunter = Stille -> Matrix zeigt "--"
 
 def find_port():
     for link in ("/dev/teufel-ir", "/dev/teufel-nano"):
@@ -122,22 +124,32 @@ def poll_disco():
         return None
 
 def poller():
-    """Schiebt periodisch den aktuellen Wert auf die Matrix, wenn ein Modus aktiv ist."""
-    global _last_value
+    """Schiebt periodisch Wert/Beat auf die Matrix, wenn ein Modus aktiv ist.
+       Idle (Stille) -> "--"; im BPM-Modus zusaetzlich Beat-Flash + schnelleres Polling."""
+    global _last_value, _last_beats
     while True:
         if matrix_mode == "off":
+            _last_beats = None
             time.sleep(0.6); continue
+        interval = 0.12 if matrix_mode == "bpm" else 0.25
         st = poll_disco()
         if st is not None:
+            level = st.get("level", 0.0) or 0.0
+            idle = level < IDLE_LEVEL
             if matrix_mode == "db":
-                lvl = st.get("level", 0.0) or 0.0
-                val = max(0, min(100, int(round(lvl * 100))))
+                _last_beats = None
+                val = -1 if idle else max(0, min(100, int(round(level * 100))))
             else:  # bpm
-                val = int(round(st.get("bpm", 0) or 0))
+                bpm = int(round(st.get("bpm", 0) or 0))
+                val = -1 if (idle or bpm <= 0) else bpm
+                beats = st.get("beats")
+                if (not idle) and beats is not None and _last_beats is not None and beats > _last_beats:
+                    push_matrix("f")                 # Beat-Flash (Rahmenpuls)
+                _last_beats = beats
             if val != _last_value:
                 _last_value = val
                 push_matrix("v%d" % val)
-        time.sleep(0.3)
+        time.sleep(interval)
 
 # ---- TCP --------------------------------------------------------------------
 def handle(conn):
