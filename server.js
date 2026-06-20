@@ -113,6 +113,21 @@ function executeCommand(command, repeats = 1) {
     });
 }
 
+// Generische Anfrage an die IR-Bridge -> gibt die Antwortzeile zurueck.
+function bridgeRequest(line) {
+    return new Promise((resolve, reject) => {
+        const sock = net.connect(IR_BRIDGE_PORT, IR_BRIDGE_HOST);
+        let resp = "";
+        let done = false;
+        const finish = (err, val) => { if (done) return; done = true; sock.destroy(); if (err) reject(err); else resolve(val); };
+        sock.setTimeout(5000);
+        sock.on("connect", () => sock.write(line + IR_NL));
+        sock.on("data", (d) => { resp += d.toString(); if (resp.indexOf(IR_NL) >= 0) finish(null, resp.trim()); });
+        sock.on("timeout", () => finish(new Error("IR bridge timeout")));
+        sock.on("error", (e) => finish(e));
+    });
+}
+
 // API Routes
 
 // Health check
@@ -300,6 +315,25 @@ app.post('/api/navigation', async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
+});
+
+// LED-Matrix-Modus (Aus/dB/BPM) auf dem Arduino R4
+app.get("/api/matrix", async (req, res) => {
+    try {
+        const r = await bridgeRequest("MATRIX?");          // "OK <mode>"
+        const mode = r.replace(/^OK\s*/, "").trim() || "off";
+        res.json({ mode });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/api/matrix", async (req, res) => {
+    const mode = ((req.body && req.body.mode) || "").toLowerCase();
+    if (!["off", "db", "bpm"].includes(mode)) return res.status(400).json({ error: "Invalid mode" });
+    try {
+        const r = await bridgeRequest("MATRIX " + mode);
+        if (r.startsWith("OK")) res.json({ success: true, mode });
+        else res.status(500).json({ error: r });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // Serve the main HTML file

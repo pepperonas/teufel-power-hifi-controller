@@ -1,25 +1,31 @@
 #!/usr/bin/env python3
 """
-Teufel IR Serial Bridge
-=======================
-Haelt den seriellen Port zum Arduino Nano (IRremote-Sketch) dauerhaft offen und
-nimmt Befehle ueber einen lokalen TCP-Socket entgegen. So entsteht KEIN
-Nano-Reset (und damit keine ~2s Verzoegerung) pro Tastendruck.
+Teufel IR Serial Bridge (+ LED-Matrix-Anzeige)
+==============================================
+Haelt den seriellen Port zum Arduino (UNO R4 / Nano, IRremote-Sketch) dauerhaft
+offen und nimmt IR-Befehle ueber einen lokalen TCP-Socket entgegen (kein
+Arduino-Reset pro Tastendruck).
 
-Protokoll (TCP 127.0.0.1:8799, eine Zeile):
-    CMD_POWER            -> sendet 1x
-    CMD_VOLUME_DOWN 5    -> sendet 5x
-Antwort: "OK\\n" oder "ERR <grund>\\n".
+Zusaetzlich (2026-06-20): die R4-LED-Matrix zeigt wahlweise den **dB-Pegel (0-100)**
+oder die **BPM** vom disco-controller (:5007). Es ist immer nur EIN Wert sichtbar;
+ein kleiner Indikator auf der Matrix zeigt den Modus. Umschaltung kommt aus dem
+Smart-Home-Dashboard via powerhifi-controller -> "MATRIX <off|db|bpm>".
 
-Der Nano sendet den NEC-Frame (Adresse 0x5780). Quelle des Sketches:
-arduino/teufel-ir-serial-bridge/  (HEX-pro-Zeile).
+TCP 127.0.0.1:8799 (eine Zeile):
+    CMD_POWER            -> IR 1x
+    CMD_VOLUME_DOWN 5    -> IR 5x
+    MATRIX db            -> Matrix-Modus setzen (off|db|bpm), persistent
+    MATRIX?              -> aktuellen Modus abfragen -> "OK <mode>"
+Serielles Protokoll zum Arduino: IR=<HEX>, Matrix-Modus=m<0|1|2>, Wert=v<int>.
 """
-import serial, socket, threading, time, glob, os
+import serial, socket, threading, time, glob, os, json, urllib.request
 
 BAUD = 115200
 HOST, TCP_PORT = "127.0.0.1", 8799
+DISCO_URL = "http://127.0.0.1:5007/api/status"
+MATRIX_FILE = "/home/pi/apps/powerhifi-controller/matrix_mode.txt"
+MODE_NUM = {"off": 0, "db": 1, "bpm": 2}
 
-# CMD-Name -> NEC Command-Code (identisch zum Original-Mapping / arduino/*-mapping.csv)
 CODES = {
     "CMD_POWER": 0x48, "CMD_BLUETOOTH": 0x40, "CMD_MUTE": 0x28,
     "CMD_VOLUME_UP": 0xB0, "CMD_VOLUME_DOWN": 0x30,
@@ -33,6 +39,8 @@ CODES = {
 
 ser = None
 ser_lock = threading.Lock()
+matrix_mode = "off"
+_last_value = None
 
 def find_port():
     for link in ("/dev/teufel-ir", "/dev/teufel-nano"):
@@ -47,7 +55,7 @@ def open_serial():
         port = find_port()
         try:
             ser = serial.Serial(port, BAUD, timeout=1)
-            time.sleep(2.0)            # Nano-Reset/Boot abwarten
+            time.sleep(2.0)            # Arduino-Reset/Boot abwarten
             ser.reset_input_buffer()
             print("Serial offen:", port, flush=True)
             return
@@ -55,21 +63,83 @@ def open_serial():
             print("Serial-Fehler (%s), retry 3s: %s" % (port, e), flush=True)
             time.sleep(3)
 
-def send_code(code, repeats):
+def _write_line(line):
+    """Eine Zeile an den Arduino schreiben (mit Reconnect). Lock muss gehalten werden."""
     global ser
+    data = (line + "\n").encode()
+    try:
+        ser.write(data); ser.flush()
+    except Exception as e:
+        print("Write-Fehler, reopen:", e, flush=True)
+        try: ser.close()
+        except Exception: pass
+        open_serial()
+        ser.write(data); ser.flush()
+
+def send_code(code, repeats):
     with ser_lock:
         for _ in range(max(1, repeats)):
-            try:
-                ser.write(("%02X\n" % code).encode())
-                ser.flush()
-            except Exception as e:
-                print("Write-Fehler, reopen:", e, flush=True)
-                try: ser.close()
-                except Exception: pass
-                open_serial()
-                ser.write(("%02X\n" % code).encode()); ser.flush()
+            _write_line("%02X" % code)
             time.sleep(0.06)
 
+def push_matrix(line):
+    with ser_lock:
+        _write_line(line)
+
+# ---- Matrix-Modus -----------------------------------------------------------
+def load_mode():
+    global matrix_mode
+    try:
+        m = open(MATRIX_FILE).read().strip().lower()
+        if m in MODE_NUM:
+            matrix_mode = m
+    except Exception:
+        pass
+
+def save_mode():
+    try:
+        with open(MATRIX_FILE, "w") as f:
+            f.write(matrix_mode)
+    except Exception as e:
+        print("Mode-Save-Fehler:", e, flush=True)
+
+def set_matrix_mode(mode):
+    global matrix_mode, _last_value
+    mode = mode.lower()
+    if mode not in MODE_NUM:
+        return False
+    matrix_mode = mode
+    save_mode()
+    _last_value = None                       # erzwingt sofortiges Neu-Senden des Werts
+    push_matrix("m%d" % MODE_NUM[mode])      # Indikator/Clear sofort aktualisieren
+    return True
+
+def poll_disco():
+    try:
+        with urllib.request.urlopen(DISCO_URL, timeout=2) as r:
+            return json.loads(r.read().decode())
+    except Exception:
+        return None
+
+def poller():
+    """Schiebt periodisch den aktuellen Wert auf die Matrix, wenn ein Modus aktiv ist."""
+    global _last_value
+    while True:
+        if matrix_mode == "off":
+            time.sleep(0.6); continue
+        st = poll_disco()
+        if st is not None:
+            if matrix_mode == "db":
+                lvl = st.get("level", 0.0) or 0.0
+                val = max(0, min(100, int(round(lvl * 100))))
+            else:  # bpm
+                val = int(round(st.get("bpm", 0) or 0))
+            if val != _last_value:
+                _last_value = val
+                push_matrix("v%d" % val)
+        time.sleep(0.3)
+
+# ---- TCP --------------------------------------------------------------------
 def handle(conn):
     try:
         data = conn.recv(256).decode(errors="replace").strip()
@@ -77,6 +147,16 @@ def handle(conn):
             conn.sendall(b"ERR empty\n"); return
         parts = data.split()
         cmd = parts[0].upper()
+        if cmd == "MATRIX?":
+            conn.sendall(("OK %s\n" % matrix_mode).encode()); return
+        if cmd == "MATRIX":
+            mode = parts[1] if len(parts) > 1 else ""
+            if set_matrix_mode(mode):
+                conn.sendall(("OK %s\n" % matrix_mode).encode())
+            else:
+                conn.sendall(b"ERR mode\n")
+            return
+        # sonst: IR-Befehl
         repeats = int(parts[1]) if len(parts) > 1 else 1
         if cmd not in CODES:
             conn.sendall(b"ERR unknown\n"); return
@@ -89,11 +169,15 @@ def handle(conn):
         conn.close()
 
 def main():
+    load_mode()
     open_serial()
+    # aktuellen Modus an den Arduino spiegeln
+    push_matrix("m%d" % MODE_NUM[matrix_mode])
+    threading.Thread(target=poller, daemon=True).start()
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     srv.bind((HOST, TCP_PORT)); srv.listen(8)
-    print("IR-Bridge lauscht auf %s:%d" % (HOST, TCP_PORT), flush=True)
+    print("IR-Bridge lauscht auf %s:%d (Matrix-Modus: %s)" % (HOST, TCP_PORT, matrix_mode), flush=True)
     while True:
         conn, _ = srv.accept()
         threading.Thread(target=handle, args=(conn,), daemon=True).start()
