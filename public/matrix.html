@@ -45,7 +45,7 @@ const IDLE_LEVEL = 0.03, LOUD_DB = -52;
 // ---- mask helpers (which of the 24x16 cells are lit) -------------------------
 let mask = Array.from({length:ROWS}, () => new Array(COLS).fill(0));
 function clearMask(){ for(let y=0;y<ROWS;y++) mask[y].fill(0); }
-function px(x,y){ if(x>=0&&x<COLS&&y>=0&&y<ROWS) mask[y][x]=1; }
+function px(x,y){ x=Math.floor(x); y=Math.floor(y); if(x>=0&&x<COLS&&y>=0&&y<ROWS) mask[y][x]=1; }
 function maskFromOffscreen(){           // threshold the offscreen canvas alpha into the mask
   const d = octx.getImageData(0,0,COLS,ROWS).data;
   for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++) mask[y][x] = d[(y*COLS+x)*4+3] > 110 ? 1 : 0;
@@ -97,7 +97,7 @@ function buildMask(now){
     case 'vu': {
       const h=Math.round((idle?0:st.level)*ROWS); if(h>vuPeak)vuPeak=h;
       for(let k=0;k<h;k++) for(let x=2;x<COLS-2;x++) px(x,ROWS-1-k);
-      if(vuPeak>0){ const py=ROWS-vuPeak; for(let x=2;x<COLS-2;x++) px(x,py); }
+      if(vuPeak>0){ const py=Math.round(ROWS-vuPeak); for(let x=2;x<COLS-2;x++) px(x,py); }
       break; }
     case 'heart':
       stamp(HEART, 5, beat ? 1 : 2);   // centered; a little upward bounce on the beat
