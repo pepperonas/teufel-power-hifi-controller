@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0e">
+<title>R4 LED-Matrix · Live</title>
+<style>
+  :root { --led:#ff3b30; }
+  * { margin:0; box-sizing:border-box; }
+  html,body { height:100%; }
+  body { background:#0a0a0e; color:#e9e9f2; overflow:hidden;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; }
+  #label { font-size:clamp(.95rem,2.4vw,1.4rem); font-weight:700; letter-spacing:.04em;
+    display:flex; align-items:center; gap:.55rem; opacity:.92; }
+  #label .dot { width:9px; height:9px; border-radius:50%; background:#5a5a6a; transition:background .2s; }
+  #label.live .dot { background:#7ddfa6; box-shadow:0 0 10px #7ddfa6; }
+  #label b { color:var(--led); }
+  #stage { flex:0 0 auto; padding:18px; border-radius:22px;
+    background:radial-gradient(120% 120% at 50% 0%, #16161e, #0c0c12);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.05), 0 24px 60px rgba(0,0,0,.55); }
+  canvas { display:block; }
+  #hint { font-size:.72rem; color:#7a7a8c; }
+</style>
+</head>
+<body>
+  <div id="label" aria-live="polite"><span class="dot"></span>R4 LED-Matrix · <b id="mode">–</b></div>
+  <div id="stage"><canvas id="cv"></canvas></div>
+  <div id="hint">1:1-Spiegelung der 12×8-Matrix · Arduino UNO R4</div>
+<script>
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const label = document.getElementById('label'), modeEl = document.getElementById('mode');
+const MODE_NAMES = { off:"Aus", db:"Pegel", pegel:"Pegel", bpm:"BPM", smiley:"Smiley",
+  vu:"VU-Meter", heart:"Herz", spektrum:"Spektrum", welle:"Welle" };
+let frameHex = "0".repeat(24), curMode = "off", liveTs = 0;
+
+function draw() {
+  const dpr = window.devicePixelRatio || 1;
+  // largest square cell that fits the viewport (minus chrome) without distorting 12:8
+  const availW = window.innerWidth  - 80;
+  const availH = window.innerHeight - 190;
+  const cell = Math.max(6, Math.floor(Math.min(availW / 12, availH / 8)));
+  const cw = cell * 12, ch = cell * 8;
+  if (cv.width !== cw * dpr || cv.height !== ch * dpr) {
+    cv.width = cw * dpr; cv.height = ch * dpr;
+    cv.style.width = cw + 'px'; cv.style.height = ch + 'px';
+  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cw, ch);
+  const r = cell * 0.40;
+  for (let row = 0; row < 8; row++) {
+    const v = parseInt(frameHex.substr(row * 3, 3), 16) || 0;
+    for (let c = 0; c < 12; c++) {
+      const lit = (v >> (11 - c)) & 1;
+      const x = c * cell + cell / 2, y = row * cell + cell / 2;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 7);
+      if (lit) { ctx.shadowColor = 'rgba(255,59,48,.9)'; ctx.shadowBlur = cell * 0.45; ctx.fillStyle = '#ff5145'; }
+      else     { ctx.shadowBlur = 0; ctx.fillStyle = 'rgba(255,70,60,.07)'; }
+      ctx.fill();
+    }
+  }
+  ctx.shadowBlur = 0;
+}
+
+async function poll() {
+  try {
+    const r = await fetch('api/matrix/frame', { cache: 'no-store' });
+    const d = await r.json();
+    if (d && typeof d.frame === 'string' && d.frame.length === 24) frameHex = d.frame;
+    if (d && d.mode) { curMode = d.mode; modeEl.textContent = MODE_NAMES[d.mode] || d.mode; }
+    liveTs = performance.now();
+  } catch (_) {}
+}
+
+function loop() {
+  draw();
+  label.classList.toggle('live', performance.now() - liveTs < 1500);
+  requestAnimationFrame(loop);
+}
+poll(); setInterval(poll, 55); requestAnimationFrame(loop);
+window.addEventListener('resize', draw);
+</script>
+</body>
+</html>

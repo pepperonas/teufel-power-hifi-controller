@@ -41,6 +41,7 @@ CODES = {
 ser = None
 ser_lock = threading.Lock()
 matrix_mode = "off"
+latest_frame = ""          # last 12x8 frame streamed by the R4 ('F'+24 hex), for the 1:1 viewer
 _last_value = None
 _last_beats = None
 IDLE_LEVEL = 0.03          # Pegel darunter = Stille -> Matrix zeigt "--"
@@ -101,6 +102,20 @@ def send_code(code, repeats):
 def push_matrix(line):
     with ser_lock:
         _write_line(line)
+
+def reader():
+    """Continuously read serial and cache the R4's streamed frames ('F'+24 hex).
+    Other lines (command echoes) are ignored. Read + write run on separate
+    threads, which pyserial supports; on reconnect the global `ser` is re-fetched."""
+    global latest_frame
+    while True:
+        s = ser
+        try:
+            line = s.readline().decode(errors="replace").strip()
+        except Exception:
+            time.sleep(0.2); continue
+        if line and line[0] == "F" and len(line) >= 25:
+            latest_frame = line[1:25]
 
 # ---- Matrix-Modus -----------------------------------------------------------
 def load_mode():
@@ -194,6 +209,8 @@ def handle(conn):
         cmd = parts[0].upper()
         if cmd == "MATRIX?":
             conn.sendall(("OK %s\n" % matrix_mode).encode()); return
+        if cmd == "FRAME?":          # latest streamed R4 frame + mode (1:1 viewer)
+            conn.sendall(("OK %s %s\n" % (latest_frame or "0" * 24, matrix_mode)).encode()); return
         if cmd == "MATRIX":
             mode = parts[1] if len(parts) > 1 else ""
             if set_matrix_mode(mode):
@@ -216,6 +233,7 @@ def handle(conn):
 def main():
     load_mode()
     open_serial()
+    threading.Thread(target=reader, daemon=True).start()   # cache streamed R4 frames
     # aktuellen Modus an den Arduino spiegeln
     push_matrix("m%d" % MODE_NUM[matrix_mode])
     threading.Thread(target=poller, daemon=True).start()

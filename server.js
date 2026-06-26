@@ -326,6 +326,15 @@ app.get("/api/matrix", async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// 1:1 mirror: the R4's actual streamed 12x8 frame ('OK <24hex> <mode>')
+app.get("/api/matrix/frame", async (req, res) => {
+    try {
+        const r = await bridgeRequest("FRAME?");
+        const p = (r || "").replace(/^OK\s*/, "").trim().split(/\s+/);
+        res.json({ frame: (p[0] || "").slice(0, 24), mode: p[1] || "off" });
+    } catch (e) { res.status(502).json({ frame: "", mode: "off", error: e.message }); }
+});
+
 app.post("/api/matrix", async (req, res) => {
     const mode = ((req.body && req.body.mode) || "").toLowerCase();
     if (!["off","db","pegel","bpm","smiley","vu","heart","spektrum","welle"].includes(mode)) return res.status(400).json({ error: "Invalid mode" });

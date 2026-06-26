@@ -38,6 +38,7 @@ int spectrum[12];
 unsigned long flashUntil = 0; // BPM-Ring
 unsigned long beatUntil  = 0; // Smiley/Herz-Puls
 unsigned long lastTick   = 0;
+unsigned long lastFrameTx = 0;   // throttle for streaming the frame to the bridge
 float wavePhase = 0;
 int vuPeak = 0;               // Peak-Hold fuer VU
 
@@ -79,6 +80,14 @@ void updateDisplay(){
     default: break;                                                                                                                 // aus
   }
   matrix.renderBitmap(frame,8,12);
+  // stream the ACTUAL 12x8 frame back to the bridge (<=22fps) for the 1:1 web
+  // viewer: 'F' + 8 rows * 3 hex (each row = 12 bits, col0 = MSB).
+  if(millis()-lastFrameTx >= 45){
+    lastFrameTx = millis();
+    char fb[26]; fb[0]='F';
+    for(int r=0;r<8;r++){ int v=0; for(int c=0;c<12;c++) if(frame[r][c]) v|=(1<<(11-c)); sprintf(fb+1+r*3,"%03X",v); }
+    Serial.println(fb);
+  }
 }
 
 void setup(){
