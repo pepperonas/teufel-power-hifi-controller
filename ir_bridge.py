@@ -66,32 +66,47 @@ def find_port():
     cands = sorted(glob.glob("/dev/ttyACM*")) + sorted(glob.glob("/dev/ttyUSB*"))
     return cands[0] if cands else "/dev/ttyACM0"
 
-def open_serial():
+def try_open_serial():
+    """Ein einzelner Verbindungsversuch zum R4. Setzt `ser` bei Erfolg, sonst None."""
     global ser
+    port = find_port()
+    try:
+        s = serial.Serial(port, BAUD, timeout=1)
+        time.sleep(2.0)            # Arduino-Reset/Boot abwarten
+        s.reset_input_buffer()
+        ser = s
+        print("Serial offen:", port, flush=True)
+        return True
+    except Exception as e:
+        ser = None
+        return False
+
+def serial_loop():
+    """Hält die R4-Verbindung am Leben; (re)öffnet sobald der Arduino auftaucht.
+       Läuft im Hintergrund, damit der TCP-Server auch OHNE R4 lauscht."""
     while True:
-        port = find_port()
-        try:
-            ser = serial.Serial(port, BAUD, timeout=1)
-            time.sleep(2.0)            # Arduino-Reset/Boot abwarten
-            ser.reset_input_buffer()
-            print("Serial offen:", port, flush=True)
-            return
-        except Exception as e:
-            print("Serial-Fehler (%s), retry 3s: %s" % (port, e), flush=True)
-            time.sleep(3)
+        if ser is None:
+            if try_open_serial():
+                try: push_matrix("m%d" % MODE_NUM[matrix_mode])   # Modus spiegeln
+                except Exception: pass
+            else:
+                time.sleep(3); continue
+        time.sleep(2)
 
 def _write_line(line):
-    """Eine Zeile an den Arduino schreiben (mit Reconnect). Lock muss gehalten werden."""
+    """Eine Zeile an den Arduino schreiben. Lock muss gehalten werden.
+       Ohne/defektem R4: `ser=None` setzen (serial_loop öffnet neu) + Fehler werfen."""
     global ser
-    data = (line + "\n").encode()
+    if ser is None:
+        raise RuntimeError("R4 nicht verbunden")
     try:
-        ser.write(data); ser.flush()
+        ser.write((line + "\n").encode()); ser.flush()
     except Exception as e:
-        print("Write-Fehler, reopen:", e, flush=True)
+        print("Write-Fehler, markiere R4 als getrennt:", e, flush=True)
         try: ser.close()
         except Exception: pass
-        open_serial()
-        ser.write(data); ser.flush()
+        ser = None
+        raise
 
 def send_code(code, repeats):
     with ser_lock:
@@ -100,8 +115,12 @@ def send_code(code, repeats):
             time.sleep(0.06)
 
 def push_matrix(line):
+    """Matrix-Daten an den R4 (fire-and-forget; ohne R4 still übersprungen)."""
     with ser_lock:
-        _write_line(line)
+        try:
+            _write_line(line)
+        except Exception:
+            pass   # kein R4 -> Matrix-Update auslassen
 
 def reader():
     """Continuously read serial and cache the R4's streamed frames ('F'+24 hex).
@@ -110,6 +129,8 @@ def reader():
     global latest_frame
     while True:
         s = ser
+        if s is None:
+            time.sleep(0.3); continue
         try:
             line = s.readline().decode(errors="replace").strip()
         except Exception:
@@ -162,7 +183,7 @@ def poller():
     global _last_value, _last_beats, _last_flash_ts, _last_spectrum
     while True:
         m = matrix_mode
-        if m == "off":
+        if m == "off" or ser is None:   # kein Modus ODER kein R4 -> nicht hart pollen
             _last_beats = None
             time.sleep(0.6); continue
         interval = 0.10 if m in ("vu", "spektrum") else 0.12
@@ -232,15 +253,15 @@ def handle(conn):
 
 def main():
     load_mode()
-    open_serial()
-    threading.Thread(target=reader, daemon=True).start()   # cache streamed R4 frames
-    # aktuellen Modus an den Arduino spiegeln
-    push_matrix("m%d" % MODE_NUM[matrix_mode])
-    threading.Thread(target=poller, daemon=True).start()
+    # TCP-Server ZUERST -> Port 8799 lauscht IMMER, auch ohne R4
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     srv.bind((HOST, TCP_PORT)); srv.listen(8)
     print("IR-Bridge lauscht auf %s:%d (Matrix-Modus: %s)" % (HOST, TCP_PORT, matrix_mode), flush=True)
+    # Serielle R4-Verbindung im Hintergrund (öffnet sobald der Arduino da ist)
+    threading.Thread(target=serial_loop, daemon=True).start()
+    threading.Thread(target=reader, daemon=True).start()   # cache streamed R4 frames
+    threading.Thread(target=poller, daemon=True).start()
     while True:
         conn, _ = srv.accept()
         threading.Thread(target=handle, args=(conn,), daemon=True).start()
