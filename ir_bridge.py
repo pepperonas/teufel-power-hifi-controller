@@ -24,7 +24,7 @@ BAUD = 115200
 HOST, TCP_PORT = "127.0.0.1", 8799
 DISCO_URL = "http://127.0.0.1:5007/api/status"
 MATRIX_FILE = "/home/pi/apps/powerhifi-controller/matrix_mode.txt"
-MODE_NUM = {"off": 0, "db": 1, "pegel": 1, "bpm": 2, "smiley": 3,
+MODE_NUM = {"temp": 8, "humidity": 9, "off": 0, "db": 1, "pegel": 1, "bpm": 2, "smiley": 3,
             "vu": 4, "heart": 5, "spektrum": 6, "welle": 7}
 
 CODES = {

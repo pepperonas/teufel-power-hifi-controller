@@ -36,7 +36,10 @@ const off = document.createElement('canvas'); off.width = COLS; off.height = ROW
 const octx = off.getContext('2d');
 const labelEl = document.getElementById('label'), modeEl = document.getElementById('mode');
 const MODE_NAMES = { off:"Aus", db:"Pegel", pegel:"Pegel", bpm:"BPM", smiley:"Smiley",
-  vu:"VU-Meter", heart:"Herz", spektrum:"Spektrum", welle:"Welle" };
+  vu:"VU-Meter", heart:"Herz", spektrum:"Spektrum", welle:"Welle", temp:"Temperatur", humidity:"Luftfeuchte" };
+const ICON_TEMP_V  = [" # "," # "," # "," # ","###","###"];   // thermometer (top-right indicator)
+const ICON_HUMID_V = [" # "," # ","###","###","###"," # "];   // droplet
+let clim = { temp:null, hum:null };
 
 let mode = "off";
 let st = { bpm:0, level:0, db:-60, beats:0, bands:[], confidence:0 };
@@ -112,6 +115,14 @@ function buildMask(now){
       for(let x=0;x<COLS;x++){ const top=Math.round(7 + 6*Math.sin(x*0.275 + wavePhase));
         for(let y=Math.max(0,top); y<ROWS; y++) px(x,y); }
       break;
+    case 'temp':
+      if(clim.temp==null) dashes();
+      else { drawTextMask(String(Math.round(clim.temp))); stamp(ICON_TEMP_V, 20, 1); }
+      break;
+    case 'humidity':
+      if(clim.hum==null) dashes();
+      else { drawTextMask(String(Math.round(clim.hum))); stamp(ICON_HUMID_V, 20, 1); }
+      break;
     default: break;   // off
   }
 }
@@ -149,7 +160,11 @@ function loop(ts){
   labelEl.classList.toggle('live', performance.now()-liveTs < 2000);
   requestAnimationFrame(loop);
 }
-pollMode(); pollStatus(); setInterval(pollMode, 1000); setInterval(pollStatus, 90);
+async function pollKlima(){ try{ const r=await fetch('/proxy/klima/api/current',{cache:'no-store'}); const d=await r.json();
+  const fresh = d && (d.age_seconds==null || d.age_seconds<600);
+  clim.temp = (fresh && d.temp!=null) ? d.temp : null;
+  clim.hum  = (fresh && d.humidity!=null) ? d.humidity : null; }catch(_){ clim.temp=clim.hum=null; } }
+pollMode(); pollStatus(); pollKlima(); setInterval(pollMode, 1000); setInterval(pollStatus, 90); setInterval(pollKlima, 10000);
 requestAnimationFrame(loop); window.addEventListener('resize', draw);
 </script>
 </body>
