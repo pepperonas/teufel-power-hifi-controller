@@ -34,11 +34,12 @@ const COLS = 24, ROWS = 16;
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 const off = document.createElement('canvas'); off.width = COLS; off.height = ROWS;
 const octx = off.getContext('2d');
+const SS = 3;  // supersample factor for crisp text
+const off2 = document.createElement('canvas'); off2.width = COLS*SS; off2.height = ROWS*SS;
+const octx2 = off2.getContext('2d');
 const labelEl = document.getElementById('label'), modeEl = document.getElementById('mode');
 const MODE_NAMES = { off:"Aus", db:"Pegel", pegel:"Pegel", bpm:"BPM", smiley:"Smiley",
   vu:"VU-Meter", heart:"Herz", spektrum:"Spektrum", welle:"Welle", temp:"Temperatur", humidity:"Luftfeuchte" };
-const ICON_TEMP_V  = [" # "," # "," # "," # ","###","###"];   // thermometer (top-right indicator)
-const ICON_HUMID_V = [" # "," # ","###","###","###"," # "];   // droplet
 let clim = { temp:null, hum:null };
 
 let mode = "off";
@@ -54,14 +55,19 @@ function maskFromOffscreen(){           // threshold the offscreen canvas alpha 
   const d = octx.getImageData(0,0,COLS,ROWS).data;
   for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++) mask[y][x] = d[(y*COLS+x)*4+3] > 110 ? 1 : 0;
 }
-function drawTextMask(text){            // crisp digits via the browser font, thresholded to 24x16
-  octx.clearRect(0,0,COLS,ROWS);
-  octx.fillStyle = '#fff'; octx.textAlign = 'center'; octx.textBaseline = 'middle';
-  let size = 15;
-  do { octx.font = '700 ' + size + 'px "Arial Narrow","Roboto Condensed",sans-serif'; size--; }
-  while (octx.measureText(text).width > COLS - 1 && size > 7);
-  octx.fillText(text, COLS/2, ROWS/2 + 0.5);
-  maskFromOffscreen();
+function drawTextMask(text){            // crisp digits: render at SS× then coverage-downsample to 24x16
+  const W = COLS*SS, H = ROWS*SS;
+  octx2.clearRect(0,0,W,H);
+  octx2.fillStyle = '#fff'; octx2.textAlign = 'center'; octx2.textBaseline = 'middle';
+  let size = ROWS*SS;                  // fill the height; shrink until it fits the width
+  do { octx2.font = '800 ' + size + 'px "Arial Narrow","Roboto Condensed","Helvetica Neue",sans-serif'; size--; }
+  while ((octx2.measureText(text).width > W - SS*2 || size > H) && size > SS*3);
+  octx2.fillText(text, W/2, H/2 + SS*0.5);
+  const d = octx2.getImageData(0,0,W,H).data;
+  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
+    let a = 0; for(let sy=0;sy<SS;sy++) for(let sx=0;sx<SS;sx++) a += d[((y*SS+sy)*W + (x*SS+sx))*4 + 3];
+    mask[y][x] = (a/(SS*SS)) > 96 ? 1 : 0;   // ~38% coverage = lit (smooth, well-proportioned glyphs)
+  }
 }
 function drawShapeMask(fn){ octx.clearRect(0,0,COLS,ROWS); octx.fillStyle='#fff'; fn(octx); maskFromOffscreen(); }
 function bar(pct){ let n=Math.round(pct/100*COLS); for(let x=0;x<n;x++) px(x,ROWS-1); }   // bottom row fill
@@ -117,11 +123,11 @@ function buildMask(now){
       break;
     case 'temp':
       if(clim.temp==null) dashes();
-      else { drawTextMask(String(Math.round(clim.temp))); stamp(ICON_TEMP_V, 20, 1); }
+      else drawTextMask(Math.round(clim.temp) + '°');   // e.g. 27°
       break;
     case 'humidity':
       if(clim.hum==null) dashes();
-      else { drawTextMask(String(Math.round(clim.hum))); stamp(ICON_HUMID_V, 20, 1); }
+      else drawTextMask(Math.round(clim.hum) + '%');         // e.g. 63%
       break;
     default: break;   // off
   }
@@ -135,13 +141,18 @@ function draw(){
   const cw = cell*COLS, ch = cell*ROWS;
   if(cv.width !== cw*dpr || cv.height !== ch*dpr){ cv.width=cw*dpr; cv.height=ch*dpr; cv.style.width=cw+'px'; cv.style.height=ch+'px'; }
   ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,cw,ch);
-  const r = cell*0.40;
+  const r = cell*0.42;
   for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
-    const lit = mask[y][x];
-    ctx.beginPath(); ctx.arc(x*cell+cell/2, y*cell+cell/2, r, 0, 7);
-    if(lit){ ctx.shadowColor='rgba(255,59,48,.9)'; ctx.shadowBlur=cell*0.5; ctx.fillStyle='#ff5145'; }
-    else   { ctx.shadowBlur=0; ctx.fillStyle='rgba(255,70,60,.07)'; }
-    ctx.fill();
+    const cx = x*cell+cell/2, cy = y*cell+cell/2;
+    if(mask[y][x]){
+      ctx.shadowColor='rgba(255,64,52,.9)'; ctx.shadowBlur=cell*0.7;
+      ctx.fillStyle='#ff4034'; ctx.beginPath(); ctx.arc(cx,cy,r,0,7); ctx.fill();
+      ctx.shadowBlur=0; ctx.fillStyle='rgba(255,196,188,.92)';   // bright hot core
+      ctx.beginPath(); ctx.arc(cx,cy,r*0.46,0,7); ctx.fill();
+    } else {
+      ctx.shadowBlur=0; ctx.fillStyle='rgba(255,80,68,.06)';
+      ctx.beginPath(); ctx.arc(cx,cy,r,0,7); ctx.fill();
+    }
   }
   ctx.shadowBlur=0;
 }
