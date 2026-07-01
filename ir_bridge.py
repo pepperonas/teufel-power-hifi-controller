@@ -183,7 +183,7 @@ def poller():
     global _last_value, _last_beats, _last_flash_ts, _last_spectrum
     while True:
         m = matrix_mode
-        if m == "off" or ser is None:   # kein Modus ODER kein R4 -> nicht hart pollen
+        if m in ("off", "welle", "temp", "humidity") or ser is None:   # kein Modus ODER kein R4 -> nicht hart pollen
             _last_beats = None
             time.sleep(0.6); continue
         interval = 0.10 if m in ("vu", "spektrum") else 0.12
