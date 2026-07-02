@@ -24,6 +24,10 @@ __pycache__/
 .Python
 venv/
 env/
+.venv/
+
+# Test caches
+.pytest_cache/
 
 # IDE
 .vscode/

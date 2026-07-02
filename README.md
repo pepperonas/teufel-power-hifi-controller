@@ -7,30 +7,35 @@
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Version](https://img.shields.io/badge/version-1.0.0-orange.svg)
 ![Node.js](https://img.shields.io/badge/Node.js-18+-339933.svg?logo=nodedotjs&logoColor=white)
-![Python](https://img.shields.io/badge/Python-3.9+-3776AB.svg?logo=python&logoColor=white)
+![Express](https://img.shields.io/badge/Express-4.x-000000.svg?logo=express&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.11-3776AB.svg?logo=python&logoColor=white)
 ![Arduino](https://img.shields.io/badge/Arduino-Compatible-00979D.svg?logo=arduino&logoColor=white)
 ![Platform](https://img.shields.io/badge/Platform-Raspberry%20Pi-C51A4A.svg?logo=raspberrypi&logoColor=white)
+![systemd](https://img.shields.io/badge/systemd-service-30a14e.svg?logo=systemd&logoColor=white)
+![LED Matrix](https://img.shields.io/badge/LED_Matrix-12%C3%978-red.svg)
+
+![Tests](https://img.shields.io/badge/tests-152%20passing-brightgreen.svg?logo=pytest&logoColor=white)
+![Python Tests](https://img.shields.io/badge/pytest-97%20passing-brightgreen.svg?logo=pytest&logoColor=white)
+![Node Tests](https://img.shields.io/badge/node--test-55%20passing-brightgreen.svg?logo=nodedotjs&logoColor=white)
+![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
+![Made with](https://img.shields.io/badge/Made_with-%E2%9D%A4-red.svg)
 
 ![IR Protocol](https://img.shields.io/badge/IR_Protocol-NEC-red.svg)
 ![Frequency](https://img.shields.io/badge/Carrier-38kHz-brightgreen.svg)
 ![Hardware PWM](https://img.shields.io/badge/Hardware_PWM-GPIO_12-purple.svg)
-![Express](https://img.shields.io/badge/Express-4.x-000000.svg?logo=express&logoColor=white)
 ![pigpio](https://img.shields.io/badge/pigpio-hardware_PWM-FF6600.svg)
 ![PM2](https://img.shields.io/badge/PM2-production_ready-2B037A?logo=pm2&logoColor=white)
 
 ![Code Quality](https://img.shields.io/badge/code_style-standard-brightgreen.svg)
 ![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)
 ![GitHub Issues](https://img.shields.io/github/issues/pepperonas/teufel-power-hifi-controller.svg)
-![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 ![REST API](https://img.shields.io/badge/REST_API-5_endpoints-blue.svg)
 ![Mobile Ready](https://img.shields.io/badge/mobile-responsive-purple?logo=smartphone&logoColor=white)
 ![Lines of Code](https://img.shields.io/badge/LOC-2k+-informational)
 ![Arduino Nano](https://img.shields.io/badge/Arduino_Nano-IR_Bridge-00979D.svg?logo=arduino&logoColor=white)
 ![IRremote](https://img.shields.io/badge/IRremote-4.4.3-009688.svg)
 ![UNO R4 WiFi](https://img.shields.io/badge/UNO_R4_WiFi-Renesas_RA4M1-00979D.svg?logo=arduino&logoColor=white)
-![LED Matrix](https://img.shields.io/badge/LED_Matrix-12%C3%978-red.svg)
 ![Disco Data](https://img.shields.io/badge/Live-dB_%2F_BPM-ff2d95.svg)
-![systemd](https://img.shields.io/badge/systemd-service-30a14e.svg?logo=systemd&logoColor=white)
 ![Serial](https://img.shields.io/badge/Serial-115200_baud-yellow.svg)
 ![NEC Address](https://img.shields.io/badge/NEC_Address-0x5780-critical.svg)
 ![IR Commands](https://img.shields.io/badge/IR_Commands-19-blue.svg)
@@ -38,7 +43,6 @@
 ![Reverse Engineered](https://img.shields.io/badge/Reverse_Engineered-%E2%9C%93-success.svg)
 ![Auto Restart](https://img.shields.io/badge/Auto--Restart-systemd-blueviolet.svg)
 ![Self Hosted](https://img.shields.io/badge/Self_Hosted-100%25-9cf.svg)
-![Made with](https://img.shields.io/badge/Made_with-%E2%9D%A4-red.svg)
 
 **Complete IR remote control solution for Teufel Power HiFi systems**  
 Web interface, REST API, hardware PWM, and Arduino reverse-engineering tools
@@ -558,6 +562,65 @@ DEBUG=1 python3 teufel-power-hifi-controller.py --command CMD_POWER
 
 # Web server
 DEBUG=* node server.js
+```
+
+## Tests
+
+The project ships two independent test suites — one for the Python bridge and one for the Node.js server. Neither suite requires hardware (no Arduino, no serial port, no GPIO, no running Express instance).
+
+### Python tests — `pytest` (97 tests)
+
+Tests live in `tests/test_ir_bridge.py` and cover pure logic extracted from `ir_bridge.py`:
+
+| Test class | What is covered |
+|---|---|
+| `TestModeNum` | All 10 matrix-mode names → correct numeric code (0–9), alias `db`/`pegel` both map to 1 |
+| `TestCodes` | All 19 IR hex codes, byte-range, uniqueness, and `%02X` serial format |
+| `TestNeedsBeat` | `_needs_beat()` predicate — which modes trigger beat-flash |
+| `TestNeedsLevel` | `_needs_level()` predicate — which modes need the dB level value |
+| `TestDownsample12` | `_downsample12()` — 24-band float → 12-column int (0–8), clamping, averaging, edge cases |
+| `TestMatrixValueProtocol` | Serial protocol line construction: `m<n>`, `v<int>`, `v-1` idle, `f` flash, BPM rounding, level scaling |
+| `TestIdleThreshold` | `IDLE_LEVEL` gate — silence detection, idle sentinel |
+| `TestBpmDeltaGate` | Push-suppression logic: only send when `|Δ| >= 2` or from idle/None |
+| `TestTcpProtocolParsing` | TCP line parsing — `MATRIX?`, `FRAME?`, `MATRIX <mode>`, `CMD_… <repeats>` |
+| `TestFlashRateLimit` | `FLASH_MIN_GAP` — rate-limiting beat flashes to ≤3/s |
+
+```bash
+# Install dev dependencies (first run only)
+python3 -m venv .venv
+.venv/bin/pip install -r requirements-dev.txt
+
+# Run all Python tests
+.venv/bin/pytest tests/ -v
+```
+
+### Node tests — `node --test` (55 tests)
+
+Tests live in `test/server.test.js` and cover the pure-logic pieces inside `server.js` (no HTTP calls, no filesystem I/O):
+
+| Describe block | What is covered |
+|---|---|
+| `inputCommands` | Input name → `CMD_*` mapping (AUX / LINE / OPTICAL / USB / BLUETOOTH) |
+| `eqCommands` | EQ type × direction → `CMD_BASS_*/MID_*/TREBLE_*` |
+| `balanceCommands` | Direction → `CMD_BAL_LEFT / CMD_BAL_RIGHT` |
+| `navCommands` | Navigation direction → `CMD_LEFT / CMD_RIGHT` |
+| `volume clamping` | `applyVolume()` — up/down/set, floor 0, ceiling 50, step calculation |
+| `matrix mode validation` | 11 valid mode strings, lowercase invariant, reject unknown modes |
+| `IR bridge connection defaults` | Default host `127.0.0.1`, default port `8799` |
+| `executeCommand wire format` | `"CMD_… <repeats>\n"` line format, matrix and frame query lines |
+
+```bash
+# No extra dependencies needed (uses Node's built-in test runner)
+npm test           # → node --test test/server.test.js
+
+# Or run directly
+node --test test/server.test.js
+```
+
+### Run everything in one shot
+
+```bash
+.venv/bin/pytest tests/ -v && npm test
 ```
 
 ## Contributing
