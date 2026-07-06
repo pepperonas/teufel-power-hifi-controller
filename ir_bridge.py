@@ -181,10 +181,19 @@ def poller():
     """Schiebt periodisch Wert/Beat auf die Matrix, wenn ein Modus aktiv ist.
        Idle (Stille) -> "--"; im BPM-Modus zusaetzlich Beat-Flash + schnelleres Polling."""
     global _last_value, _last_beats, _last_flash_ts, _last_spectrum
+    _last_mode_push = 0.0
     while True:
         m = matrix_mode
         if m in ("off", "welle", "temp", "humidity") or ser is None:   # kein Modus ODER kein R4 -> nicht hart pollen
             _last_beats = None
+            # Self-render modes (temp/humidity/welle): the R4 draws these itself (no disco
+            # poll needed), but re-assert the mode every ~8 s so it survives an R4 reboot
+            # (e.g. after a reflash) that would otherwise leave the matrix blank.
+            now = time.monotonic()
+            if m in ("temp", "humidity", "welle") and ser is not None and (now - _last_mode_push) >= 8.0:
+                _last_mode_push = now
+                try: push_matrix("m%d" % MODE_NUM[m])
+                except Exception: pass
             time.sleep(0.6); continue
         interval = 0.10 if m in ("vu", "spektrum") else 0.12
         st = poll_disco()
