@@ -1123,6 +1123,12 @@ html.theme-anim::view-transition-new(root){
                 this.initializeVolumeRateLimit();
                 this.initializeTheme();
                 this.loadInitialState();
+                // Live-Sync: der Server haelt den (angenommenen) Geraete-State — regelmaessig
+                // neu laden, damit Aenderungen vom Dashboard/anderen Clients hier ankommen.
+                setInterval(() => this.loadInitialState(), 3000);
+                document.addEventListener('visibilitychange', () => {
+                    if (!document.hidden) this.loadInitialState();
+                });
             }
 
             // Spiegelt den persistierten Geraete-State (Power/Eingang/Mute) beim Laden in die UI.
