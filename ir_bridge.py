@@ -6,7 +6,7 @@ Haelt den seriellen Port zum Arduino (UNO R4 / Nano, IRremote-Sketch) dauerhaft
 offen und nimmt IR-Befehle ueber einen lokalen TCP-Socket entgegen (kein
 Arduino-Reset pro Tastendruck).
 
-Zusaetzlich (2026-06-20): die R4-LED-Matrix zeigt wahlweise den **dB-Pegel (0-100)**
+Zusaetzlich (2026-06-20): die R4-LED-Matrix zeigt wahlweise den **Pegel (0-100) oder echten dBFS**
 oder die **BPM** vom disco-controller (:5007). Es ist immer nur EIN Wert sichtbar;
 ein kleiner Indikator auf der Matrix zeigt den Modus. Umschaltung kommt aus dem
 Smart-Home-Dashboard via powerhifi-controller -> "MATRIX <off|db|bpm>".
@@ -24,8 +24,8 @@ BAUD = 115200
 HOST, TCP_PORT = "127.0.0.1", 8799
 DISCO_URL = "http://127.0.0.1:5007/api/status"
 MATRIX_FILE = "/home/pi/apps/powerhifi-controller/matrix_mode.txt"
-MODE_NUM = {"temp": 8, "humidity": 9, "off": 0, "db": 1, "pegel": 1, "bpm": 2, "smiley": 3,
-            "vu": 4, "heart": 5, "spektrum": 6, "welle": 7}
+MODE_NUM = {"temp": 8, "humidity": 9, "off": 0, "pegel": 1, "bpm": 2, "smiley": 3,
+            "vu": 4, "heart": 5, "spektrum": 6, "welle": 7, "db": 10}
 
 CODES = {
     "CMD_POWER": 0x48, "CMD_BLUETOOTH": 0x40, "CMD_MUTE": 0x28,
@@ -50,7 +50,9 @@ _last_flash_ts = 0.0
 _last_spectrum = None
 
 def _needs_beat(m):   return m in ("bpm", "smiley", "heart", "welle")
-def _needs_level(m):  return m in ("db", "pegel", "vu", "smiley", "heart")
+def _needs_level(m):  return m in ("pegel", "vu", "smiley", "heart")
+def _needs_dbfs(m):   return m == "db"
+DBFS_IDLE = -200          # sentinel → firmware draws "--" (real dBFS is typically -60…0)
 def _downsample12(bands):
     out = []
     for i in range(12):
@@ -158,8 +160,6 @@ def save_mode():
 def set_matrix_mode(mode):
     global matrix_mode, _last_value, _last_beats, _last_spectrum
     mode = mode.lower()
-    if mode == "db":
-        mode = "pegel"
     if mode not in MODE_NUM:
         return False
     matrix_mode = mode
@@ -216,6 +216,17 @@ def poller():
                 val = -1 if (idle or bpm <= 0) else bpm
                 # nur bei spuerbarer Aenderung neu senden -> stabile Anzeige
                 if val != _last_value and (val == -1 or _last_value in (None, -1) or abs(val - _last_value) >= 2):
+                    _last_value = val; push_matrix("v%d" % val)
+            elif _needs_dbfs(m):
+                # True dBFS from disco (e.g. -42). Idle → sentinel for "--".
+                raw = st.get("db")
+                if idle or raw is None:
+                    val = DBFS_IDLE
+                else:
+                    val = int(round(float(raw)))
+                    if val < -99: val = -99
+                    if val > 0: val = 0
+                if val != _last_value and (val == DBFS_IDLE or _last_value in (None, DBFS_IDLE) or abs(val - _last_value) >= 1):
                     _last_value = val; push_matrix("v%d" % val)
             elif _needs_level(m):
                 val = -1 if idle else max(0, min(100, int(round(level * 100))))
