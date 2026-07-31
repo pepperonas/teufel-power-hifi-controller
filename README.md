@@ -1,12 +1,5 @@
 # Teufel Power HiFi Controller
 
-> **⚡ Update 2026-06 — Stack & UI**
->
-> - **Backend:** Python/**Flask** mit persistentem **pigpio**-Handle (migriert von Node/Express). Läuft als **systemd-Service** `powerhifi-controller` (kein PM2 mehr). Die bewährte NEC-IR-Logik (`teufel-power-hifi-controller.py`, GPIO 12) wird in-process genutzt — kein Subprozess pro Klick. ~29 MB RSS.
-> - **UI:** **Material Design 3 Expressive** (tonale Dark-Surfaces, vibrante Akzente, XL-Shapes, MD3-Switches/-Slider) + **Spring-Animationen** (gestaffelte Karten-Entrance, atmende aktive Buttons).
-> - **Deploy:** `git pull && sudo systemctl restart powerhifi-controller` · Logs: `journalctl -u powerhifi-controller -f`
-
-
 <div align="center">
 
 ![Teufel Power HiFi Controller](images/banner.png)
@@ -14,24 +7,42 @@
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Version](https://img.shields.io/badge/version-1.0.0-orange.svg)
 ![Node.js](https://img.shields.io/badge/Node.js-18+-339933.svg?logo=nodedotjs&logoColor=white)
-![Python](https://img.shields.io/badge/Python-3.9+-3776AB.svg?logo=python&logoColor=white)
+![Express](https://img.shields.io/badge/Express-4.x-000000.svg?logo=express&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.11-3776AB.svg?logo=python&logoColor=white)
 ![Arduino](https://img.shields.io/badge/Arduino-Compatible-00979D.svg?logo=arduino&logoColor=white)
 ![Platform](https://img.shields.io/badge/Platform-Raspberry%20Pi-C51A4A.svg?logo=raspberrypi&logoColor=white)
+![systemd](https://img.shields.io/badge/systemd-service-30a14e.svg?logo=systemd&logoColor=white)
+![LED Matrix](https://img.shields.io/badge/LED_Matrix-12%C3%978-red.svg)
+
+![Tests](https://img.shields.io/badge/tests-152%20passing-brightgreen.svg?logo=pytest&logoColor=white)
+![Python Tests](https://img.shields.io/badge/pytest-97%20passing-brightgreen.svg?logo=pytest&logoColor=white)
+![Node Tests](https://img.shields.io/badge/node--test-55%20passing-brightgreen.svg?logo=nodedotjs&logoColor=white)
+![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
+![Made with](https://img.shields.io/badge/Made_with-%E2%9D%A4-red.svg)
 
 ![IR Protocol](https://img.shields.io/badge/IR_Protocol-NEC-red.svg)
 ![Frequency](https://img.shields.io/badge/Carrier-38kHz-brightgreen.svg)
 ![Hardware PWM](https://img.shields.io/badge/Hardware_PWM-GPIO_12-purple.svg)
-![Express](https://img.shields.io/badge/Express-4.x-000000.svg?logo=express&logoColor=white)
 ![pigpio](https://img.shields.io/badge/pigpio-hardware_PWM-FF6600.svg)
 ![PM2](https://img.shields.io/badge/PM2-production_ready-2B037A?logo=pm2&logoColor=white)
 
 ![Code Quality](https://img.shields.io/badge/code_style-standard-brightgreen.svg)
 ![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)
 ![GitHub Issues](https://img.shields.io/github/issues/pepperonas/teufel-power-hifi-controller.svg)
-![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 ![REST API](https://img.shields.io/badge/REST_API-5_endpoints-blue.svg)
 ![Mobile Ready](https://img.shields.io/badge/mobile-responsive-purple?logo=smartphone&logoColor=white)
 ![Lines of Code](https://img.shields.io/badge/LOC-2k+-informational)
+![Arduino Nano](https://img.shields.io/badge/Arduino_Nano-IR_Bridge-00979D.svg?logo=arduino&logoColor=white)
+![IRremote](https://img.shields.io/badge/IRremote-4.4.3-009688.svg)
+![UNO R4 WiFi](https://img.shields.io/badge/UNO_R4_WiFi-Renesas_RA4M1-00979D.svg?logo=arduino&logoColor=white)
+![Disco Data](https://img.shields.io/badge/Live-dB_%2F_BPM-ff2d95.svg)
+![Serial](https://img.shields.io/badge/Serial-115200_baud-yellow.svg)
+![NEC Address](https://img.shields.io/badge/NEC_Address-0x5780-critical.svg)
+![IR Commands](https://img.shields.io/badge/IR_Commands-19-blue.svg)
+![Smart Home](https://img.shields.io/badge/Smart_Home-Dashboard-FF6F00.svg?logo=homeassistant&logoColor=white)
+![Reverse Engineered](https://img.shields.io/badge/Reverse_Engineered-%E2%9C%93-success.svg)
+![Auto Restart](https://img.shields.io/badge/Auto--Restart-systemd-blueviolet.svg)
+![Self Hosted](https://img.shields.io/badge/Self_Hosted-100%25-9cf.svg)
 
 **Complete IR remote control solution for Teufel Power HiFi systems**  
 Web interface, REST API, hardware PWM, and Arduino reverse-engineering tools
@@ -57,6 +68,139 @@ This project provides comprehensive infrared (IR) remote control for Teufel Powe
 - **🎛️ Full Control** — Power, volume, mute, bass, treble, balance, input selection
 - **📱 Mobile Ready** — Touch-optimized interface for phones and tablets
 - **🚀 Production Ready** — PM2 process management with auto-restart
+- **📟 LED Matrix Readout** — live **SPL dB** / BPM on the UNO R4 12×8 matrix (disco data, USB-serial); optional **Iris** overlay when loud (~70 dB / −20 dBFS, ×1.3 in LAUT mode)
+- **✨ MD3 Expressive UI** — animated theme switch + state-reactive, prefers-reduced-motion-aware motion
+
+## 🔁 Two IR Back-Ends — pigpio vs. Arduino Nano Serial Bridge
+
+This controller supports **two interchangeable ways** of putting the 38 kHz NEC carrier on the IR LED. The Node.js server, the REST API and the web dashboard are **identical** for both — only the low-level **IR back-end** differs, so you can switch without touching the smart-home integration.
+
+| | **A) pigpio (GPIO 12)** | **B) Arduino Nano Serial Bridge** ✅ *recommended* |
+|---|---|---|
+| Carrier source | Raspberry Pi `pigpiod` DMA wave / hardware PWM | Arduino `IRremote` hardware timer |
+| Emitter pin | Pi **GPIO 12** (pin 32) | Nano **D3** |
+| Reliability | Sensitive to the Pi's PWM peripheral | **Rock-solid**, independent of the Pi |
+| Driver | `teufel-power-hifi-controller.py` (kept as fallback) | `ir_bridge.py` + `arduino/teufel-ir-serial-bridge/` |
+
+> ### 💡 Why the Arduino Nano back-end exists
+> On the maintainer's Raspberry Pi 3 the **onboard audio driver** (`snd_bcm2835`, enabled by `dtparam=audio=on`) claims the **same PWM hardware** that `pigpio` uses to clock the IR carrier. Symptom: the IR LED visibly lights up (a phone camera sees it) but the carrier is shredded into *thousands* of stray pulses, so the Teufel never decodes a clean NEC frame.
+>
+> This was proven with a second Arduino acting as an **IR receiver/analyzer**: the original Teufel remote decoded cleanly as `NEC Address=0x5780 Command=0x48`, while the pigpio output decoded as `Protocol=UNKNOWN` (a single ~5 ms blob). Re-generating the carrier on an **Arduino Nano running IRremote** produces a bit-identical, perfectly-timed signal — literally `IrSender.sendNEC(0x5780, …)` — and the speaker responds reliably across the room.
+
+### Architecture (Nano bridge)
+
+```
+Smart-Home Dashboard ──HTTP──> nginx /proxy/hifi/ ──> Node server.js (:5002)
+        │
+        └─ executeCommand() ──TCP 127.0.0.1:8799──> ir_bridge.py  (systemd service)
+                                                          │  keeps /dev/teufel-ir open
+                                                          └─USB serial 115200─> Arduino Nano
+                                                                                    │  IRremote
+                                                                                    └─D3─> IR LED ──))) Teufel
+```
+
+* **`arduino/teufel-ir-serial-bridge/`** — Nano sketch. Reads one HEX command code per line and emits `IrSender.sendNEC(0x5780, code)`.
+* **`ir_bridge.py`** — persistent Python daemon (`teufel-ir-bridge.service`). Holds the serial port open so there is **no per-command Arduino reset** (no ~2 s delay), maps `CMD_*` names → HEX codes and listens on `127.0.0.1:8799`.
+* **`server.js`** — `executeCommand()` sends `CMD_… [repeats]` to the bridge over TCP. The REST API and dashboard are unchanged.
+* **udev** — `udev/99-teufel-ir.rules` gives the Nano a stable `/dev/teufel-ir` symlink that survives USB re-enumeration.
+
+### Hardware (Nano bridge)
+
+| Nano pin | Connects to |
+|---|---|
+| **D3** | IR-LED signal (via current-limiting resistor, or a transistor driver for more range) |
+| **GND** | IR-LED cathode / emitter-module GND |
+| **5V** | IR transmitter module VCC (only for amplified modules) |
+| **USB** | Raspberry Pi (power **and** serial) |
+
+> ⚠️ **Use a bare 940 nm IR LED** (e.g. **KY-005**). Avoid integrated "smart" emitter units that **filter/smooth** the modulation (some M5Stack-style modules add a capacitor): they turn the clean 38 kHz carrier into a DC-ish blob that no receiver can decode.
+
+### Setup (Nano bridge)
+
+```bash
+# 1) Flash the Nano (from the Pi via arduino-cli) — IR LED on D3
+arduino-cli core install arduino:avr
+arduino-cli lib install IRremote
+# Option 1 - classic Nano (ATmega328):
+arduino-cli compile --fqbn arduino:avr:nano:cpu=atmega328old arduino/teufel-ir-serial-bridge
+arduino-cli upload  -p /dev/teufel-ir --fqbn arduino:avr:nano:cpu=atmega328old arduino/teufel-ir-serial-bridge
+# Option 2 - Arduino UNO R4 WiFi (Renesas, USB-C, recommended - rock-solid USB):
+#   arduino-cli core install arduino:renesas_uno
+#   arduino-cli compile --fqbn arduino:renesas_uno:unor4wifi arduino/teufel-ir-serial-bridge
+#   arduino-cli upload  -p /dev/teufel-ir --fqbn arduino:renesas_uno:unor4wifi arduino/teufel-ir-serial-bridge
+
+# 2) Install the udev rule + the bridge daemon
+sudo cp udev/99-teufel-ir.rules /etc/udev/rules.d/
+sudo udevadm control --reload-rules && sudo udevadm trigger
+sudo cp systemd/teufel-ir-bridge.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now teufel-ir-bridge
+
+# 3) The Node service talks to the bridge automatically (127.0.0.1:8799)
+sudo systemctl restart powerhifi-controller
+```
+
+### Bridge protocol & manual test
+
+The bridge speaks a trivial line protocol on `127.0.0.1:8799` — `CMD_NAME [repeats]` → `OK`:
+
+```bash
+python3 - <<PYEOF
+import socket
+s = socket.create_connection(("127.0.0.1", 8799), timeout=5)
+s.sendall(b"CMD_VOLUME_DOWN 3\n")   # 3 steps down
+print(s.recv(64).decode().strip())  # -> OK
+PYEOF
+```
+
+Supported `CMD_*` names: `CMD_POWER`, `CMD_MUTE`, `CMD_BLUETOOTH`, `CMD_VOLUME_UP`, `CMD_VOLUME_DOWN`, `CMD_LEFT`, `CMD_RIGHT`, `CMD_BASS_UP/DOWN`, `CMD_MID_UP/DOWN`, `CMD_TREBLE_UP/DOWN`, `CMD_AUX`, `CMD_LINE`, `CMD_OPT`, `CMD_USB`, `CMD_BAL_LEFT/RIGHT`.
+
+## 📟 LED Matrix Display — live dB level / BPM (UNO R4)
+
+When the IR sender is an **Arduino UNO R4 WiFi**, its built-in **12×8 LED matrix** doubles as a live readout for the `disco-controller` (the mic-driven beat/loudness analyzer running on the same Pi). It shows **exactly one value at a time** — either the **phone-comparable SPL (0–99)** or the **BPM** — with a small on-matrix indicator for the mode. Switched from the smart-home dashboard.
+
+**Iris overlay (2026-07-31):** `POST /api/matrix/iris {iris:true}` enables firmware mode 11 („IRIS“) whenever reported disco `db` exceeds **−20 dBFS ≈ 70 dB SPL**. In LAUT/`quiet_log` mode the threshold scales by **×1.3** (same damping as the reported dB). Overlay is not a saved matrix mode; the previous effect resumes under the threshold.
+
+### How the data gets there (performance)
+
+The value travels over the **existing USB serial link** — the same one used for IR — so **no extra wiring** is needed. IR commands and matrix messages are multiplexed on one line; a 2–3-digit value pushed a few times per second at 115200 baud is negligible bandwidth (jumper/I²C would add wiring + 3.3 V↔5 V handling for zero benefit at this data rate).
+
+```
+Dashboard (Disco card) → nginx → Node /api/matrix → ir_bridge.py
+   ir_bridge polls disco-controller :5007 (level / bpm) → pushes value over USB serial → R4 → LED matrix
+```
+
+### Serial protocol (multiplexed)
+
+| Line | Meaning |
+|---|---|
+| `<HEX>` e.g. `48` | IR command → `sendNEC(0x5780, 0x48)` (unchanged) |
+| `m0`..`m7` | matrix mode: 0 off · 1 Pegel · 2 BPM · 3 Smiley · 4 VU-Meter · 5 Herz · 6 Spektrum · 7 Welle · 8 Temperatur · 9 Luftfeuchte |
+| `s<12>` | spectrum column heights (12 chars `0`..`8`), for the Spektrum mode |
+| `v<int>` e.g. `v126` | value for the current mode |
+| `v-1` | idle / silence -> the matrix shows `--` |
+| `f` | beat flash -- a brief frame pulse (BPM mode) |
+
+IR codes are pure hex digits; `m`/`v` are not, so the sketch tells them apart unambiguously. The matrix renders the number with a compact 3×5 font plus a mode indicator (**block top-left = dB**, **peak top-right = BPM**). In **dB mode** the bottom row is a live **level bar** (0–100); during **silence** the matrix shows `--`; and in **BPM mode** the frame **pulses on every detected beat** (`ir_bridge.py` polls faster — ~0.12 s — and emits `f` when the beat counter advances).
+
+### Display modes
+
+Selectable from the dashboard (custom dropdown in the Disco card):
+**Aus**, **Pegel** (level number + bar), **BPM** (number + gentle beat pulse), **Smiley** (winks on the beat), **VU-Meter** (level block + peak-hold), **Herz** (beats with the music), **Spektrum** (12-column live spectrum from the disco bands) **Welle** (self-running sine wave), plus **Temperatur** / **Luftfeuchte** (the live ENV-III reading from raumklima, shown as `27°` / `63%` — integer + unit glyph). Audio-reactive modes are fed by `ir_bridge.py` (level / bpm / beats / spectrum); the beat pulse is rate-limited so fast tempos stay readable.
+
+### Control & components
+
+* **Dashboard** — Disco card → **🔢 R4-Matrix** select (**Aus / dB-Pegel / BPM**); reflects the persisted mode on load.
+* **`ir_bridge.py`** — a background poller GETs `disco-controller` `/api/status` *only while a mode is active* (off ⇒ no polling), computes the value (dB → `round(level·100)`, BPM → `bpm`) and pushes it. Mode is set via the TCP command `MATRIX <off|db|bpm>` and persisted in `matrix_mode.txt`.
+* **`server.js`** — `GET` / `POST /api/matrix` ↔ the bridge.
+* **Sketch** — `arduino/teufel-ir-serial-bridge/` renders digits + indicator and keeps IR working alongside (verified: IR + matrix coexist).
+
+## ✨ UI — Material 3 Expressive motion
+
+The web interface uses a cohesive MD3 Expressive motion system, all `prefers-reduced-motion`-guarded:
+
+* **Animated theme switch** — a 1.15 s circular reveal (View Transitions API) blooming from the toggle, matching the other smart-home UIs.
+* **State-reactive visuals** — the live device state (from the API, reflected on load via `/api/status`) drives the UI: the power button breathes/bursts when **on**, the active input glows, and **mute is unmistakable** — green “Ton an” 🔊 ↔ red, pulsing “Gemutet” 🔇.
+* **Micro-interactions** — tactile ripples, spring press, a confirm-ring on success, directional nudges and a staggered card entrance.
 
 ## Quick Start
 
@@ -420,6 +564,65 @@ DEBUG=1 python3 teufel-power-hifi-controller.py --command CMD_POWER
 
 # Web server
 DEBUG=* node server.js
+```
+
+## Tests
+
+The project ships two independent test suites — one for the Python bridge and one for the Node.js server. Neither suite requires hardware (no Arduino, no serial port, no GPIO, no running Express instance).
+
+### Python tests — `pytest` (97 tests)
+
+Tests live in `tests/test_ir_bridge.py` and cover pure logic extracted from `ir_bridge.py`:
+
+| Test class | What is covered |
+|---|---|
+| `TestModeNum` | All 10 matrix-mode names → correct numeric code (0–9), alias `db`/`pegel` both map to 1 |
+| `TestCodes` | All 19 IR hex codes, byte-range, uniqueness, and `%02X` serial format |
+| `TestNeedsBeat` | `_needs_beat()` predicate — which modes trigger beat-flash |
+| `TestNeedsLevel` | `_needs_level()` predicate — which modes need the dB level value |
+| `TestDownsample12` | `_downsample12()` — 24-band float → 12-column int (0–8), clamping, averaging, edge cases |
+| `TestMatrixValueProtocol` | Serial protocol line construction: `m<n>`, `v<int>`, `v-1` idle, `f` flash, BPM rounding, level scaling |
+| `TestIdleThreshold` | `IDLE_LEVEL` gate — silence detection, idle sentinel |
+| `TestBpmDeltaGate` | Push-suppression logic: only send when `|Δ| >= 2` or from idle/None |
+| `TestTcpProtocolParsing` | TCP line parsing — `MATRIX?`, `FRAME?`, `MATRIX <mode>`, `CMD_… <repeats>` |
+| `TestFlashRateLimit` | `FLASH_MIN_GAP` — rate-limiting beat flashes to ≤3/s |
+
+```bash
+# Install dev dependencies (first run only)
+python3 -m venv .venv
+.venv/bin/pip install -r requirements-dev.txt
+
+# Run all Python tests
+.venv/bin/pytest tests/ -v
+```
+
+### Node tests — `node --test` (55 tests)
+
+Tests live in `test/server.test.js` and cover the pure-logic pieces inside `server.js` (no HTTP calls, no filesystem I/O):
+
+| Describe block | What is covered |
+|---|---|
+| `inputCommands` | Input name → `CMD_*` mapping (AUX / LINE / OPTICAL / USB / BLUETOOTH) |
+| `eqCommands` | EQ type × direction → `CMD_BASS_*/MID_*/TREBLE_*` |
+| `balanceCommands` | Direction → `CMD_BAL_LEFT / CMD_BAL_RIGHT` |
+| `navCommands` | Navigation direction → `CMD_LEFT / CMD_RIGHT` |
+| `volume clamping` | `applyVolume()` — up/down/set, floor 0, ceiling 50, step calculation |
+| `matrix mode validation` | 11 valid mode strings, lowercase invariant, reject unknown modes |
+| `IR bridge connection defaults` | Default host `127.0.0.1`, default port `8799` |
+| `executeCommand wire format` | `"CMD_… <repeats>\n"` line format, matrix and frame query lines |
+
+```bash
+# No extra dependencies needed (uses Node's built-in test runner)
+npm test           # → node --test test/server.test.js
+
+# Or run directly
+node --test test/server.test.js
+```
+
+### Run everything in one shot
+
+```bash
+.venv/bin/pytest tests/ -v && npm test
 ```
 
 ## Contributing
