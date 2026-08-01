@@ -64,6 +64,7 @@ matrix_mode = "off"
 iris_enabled = False       # Overlay: show "IRIS" while disco warn_over (shared thr)
 _iris_showing = False      # currently displaying firmware mode 11
 latest_frame = ""          # last 12x8 frame streamed by the R4 ('F'+24 hex), for the 1:1 viewer
+_serial_booted = False     # True after open settled — reader may consume lines
 _last_value = None
 _last_beats = None
 IDLE_LEVEL = 0.03          # Pegel darunter = Stille -> Matrix zeigt "--"
@@ -163,24 +164,64 @@ def find_port():
 
 def try_open_serial():
     """Ein einzelner Verbindungsversuch zum R4. Setzt `ser` bei Erfolg, sonst None."""
-    global ser
+    global ser, _serial_booted, latest_frame
     port = find_port()
     try:
-        # dsrdtr/rtscts False: kein DTR-Toggle → kein Arduino-Reset beim Open
-        # (sonst flackert die Matrix bei jedem USB-/Bridge-Reconnect).
-        s = serial.Serial(port, BAUD, timeout=1, dsrdtr=False, rtscts=False)
+        _serial_booted = False  # reader pauses — we need boot lines ourselves
+        # 1200-baud touch resets R4 + re-enumerates USB. Must close and reopen
+        # on a fresh handle (in-place DTR leaves a dead CDC endpoint).
+        try:
+            touch = serial.Serial(port, 1200, timeout=0.2)
+            touch.close()
+        except Exception:
+            pass
+        # Wait until the ACM node is back after re-enumeration
+        s = None
+        deadline_port = time.monotonic() + 8.0
+        while time.monotonic() < deadline_port:
+            port = find_port()
+            if os.path.exists(port):
+                try:
+                    s = serial.Serial(port, BAUD, timeout=0.4, dsrdtr=False, rtscts=False)
+                    break
+                except Exception:
+                    s = None
+            time.sleep(0.3)
+        if s is None:
+            raise RuntimeError("R4 port not back after 1200-touch")
         try:
             s.dtr = False
             s.rts = False
         except Exception:
             pass
-        time.sleep(0.3)
-        s.reset_input_buffer()
         ser = s
-        print("Serial offen:", port, flush=True)
+        saw_ready = False
+        deadline = time.monotonic() + 14.0
+        while time.monotonic() < deadline:
+            try:
+                line = s.readline().decode(errors="replace").strip()
+            except Exception:
+                break
+            if not line:
+                continue
+            low = line.lower()
+            # "ready" = setup done; F-frames mean loop() already running
+            if low == "ready" or (line[0] == "F" and len(line) >= 25):
+                saw_ready = True
+                if line[0] == "F" and len(line) >= 25:
+                    latest_frame = line[1:25]
+                break
+        try:
+            s.reset_input_buffer()
+        except Exception:
+            pass
+        _serial_booted = True
+        print("Serial offen: %s (ready=%s)" % (port, saw_ready), flush=True)
         return True
     except Exception as e:
+        print("Serial-Open-Fehler:", e, flush=True)
         ser = None
+        _serial_booted = False
         return False
 
 def serial_loop():
@@ -222,6 +263,7 @@ def _write_line(line):
         try: ser.close()
         except Exception: pass
         ser = None
+        _serial_booted = False
         raise
 
 def send_code(code, repeats):
@@ -245,7 +287,7 @@ def reader():
     global latest_frame
     while True:
         s = ser
-        if s is None:
+        if s is None or not _serial_booted:
             time.sleep(0.3); continue
         try:
             line = s.readline().decode(errors="replace").strip()
