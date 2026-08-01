@@ -6,17 +6,16 @@ Haelt den seriellen Port zum Arduino (UNO R4 / Nano, IRremote-Sketch) dauerhaft
 offen und nimmt IR-Befehle ueber einen lokalen TCP-Socket entgegen (kein
 Arduino-Reset pro Tastendruck).
 
-Zusaetzlich (2026-06-20): die R4-LED-Matrix zeigt wahlweise den **Pegel (0-100) oder echten dBFS**
-oder die **BPM** vom disco-controller (:5007). Es ist immer nur EIN Wert sichtbar;
-ein kleiner Indikator auf der Matrix zeigt den Modus. Umschaltung kommt aus dem
-Smart-Home-Dashboard via powerhifi-controller -> "MATRIX <off|db|bpm>".
+Zusaetzlich: die R4-LED-Matrix zeigt Pegel/dB/BPM/Effekte/Klima, **Uhr** (Mode 12,
+kompakte HH:MM + Sekundenbalken) oder Iris-Overlay. Umschaltung aus dem
+Smart-Home-Dashboard via powerhifi-controller -> "MATRIX <mode>".
 
 TCP 127.0.0.1:8799 (eine Zeile):
     CMD_POWER            -> IR 1x
     CMD_VOLUME_DOWN 5    -> IR 5x
-    MATRIX db            -> Matrix-Modus setzen (off|db|bpm), persistent
+    MATRIX clock         -> Matrix-Modus setzen (off|clock|db|bpm|…), persistent
     MATRIX?              -> aktuellen Modus abfragen -> "OK <mode>"
-Serielles Protokoll zum Arduino: IR=<HEX>, Matrix-Modus=m<0|1|2>, Wert=v<int>.
+Serielles Protokoll zum Arduino: IR=<HEX>, Matrix-Modus=m<n>, Wert=v<int> (clock: vHHMMSS).
 """
 import serial, socket, threading, time, glob, os, json, urllib.request
 
@@ -27,10 +26,26 @@ DISCO_URL = os.environ.get("DISCO_URL", "http://127.0.0.1:5007/api/status")
 MATRIX_FILE = "/home/pi/apps/powerhifi-controller/matrix_mode.txt"
 IRIS_FILE = "/home/pi/apps/powerhifi-controller/matrix_iris.txt"
 MODE_NUM = {"temp": 8, "humidity": 9, "off": 0, "pegel": 1, "bpm": 2, "smiley": 3,
-            "vu": 4, "heart": 5, "spektrum": 6, "welle": 7, "db": 10}
+            "vu": 4, "heart": 5, "spektrum": 6, "welle": 7, "db": 10, "clock": 12}
 IRIS_MODE = 11                 # firmware bitmap "IRIS" (overlay, not a saved mode)
+CLOCK_MODE = 12                # firmware HH:MM + seconds bar (v=HHMMSS)
+NO_DISCO_MODES = frozenset({"off", "welle", "temp", "humidity", "clock"})
 IRIS_DB = -20.0                # legacy fallback ≈70 SPL if status lacks warn_over/warn_thr
 QUIET_LOG_FACTOR = 1.3         # LAUT/quiet_log damps reported dB → scale legacy thr too
+
+# Condensed 2×5 font — mirrors firmware FONT2 for layout unit tests
+FONT2 = (
+    (0b11, 0b10, 0b10, 0b10, 0b11),  # 0
+    (0b01, 0b01, 0b01, 0b01, 0b01),  # 1
+    (0b11, 0b01, 0b11, 0b10, 0b11),  # 2
+    (0b11, 0b01, 0b11, 0b01, 0b11),  # 3
+    (0b10, 0b10, 0b11, 0b01, 0b01),  # 4
+    (0b11, 0b10, 0b11, 0b01, 0b11),  # 5
+    (0b11, 0b10, 0b11, 0b10, 0b11),  # 6
+    (0b11, 0b01, 0b01, 0b01, 0b01),  # 7
+    (0b11, 0b10, 0b11, 0b10, 0b11),  # 8
+    (0b11, 0b10, 0b11, 0b01, 0b11),  # 9
+)
 
 CODES = {
     "CMD_POWER": 0x48, "CMD_BLUETOOTH": 0x40, "CMD_MUTE": 0x28,
@@ -62,6 +77,75 @@ def _needs_beat(m):   return m in ("bpm", "smiley", "heart", "welle")
 def _needs_level(m):  return m in ("pegel", "vu", "smiley", "heart")
 def _needs_dbfs(m):   return m == "db"
 DBFS_IDLE = -200          # sentinel → firmware draws "--" (real dBFS is typically -60…0)
+
+def pack_clock(hour, minute, second):
+    """Pack local time as HHMMSS int for firmware mode 12 (`vHHMMSS`)."""
+    h = max(0, min(23, int(hour)))
+    m = max(0, min(59, int(minute)))
+    s = max(0, min(59, int(second)))
+    return h * 10000 + m * 100 + s
+
+def unpack_clock(v):
+    """Unpack HHMMSS — mirrors firmware drawClock clamps."""
+    if v is None:
+        return None
+    try:
+        v = int(v)
+    except (TypeError, ValueError):
+        return None
+    if v < 0:
+        return None
+    s = v % 100
+    m = (v // 100) % 100
+    h = v // 10000
+    if s > 59:
+        s = 59
+    if m > 59:
+        m = 59
+    if h > 23:
+        h = 23
+    return h, m, s
+
+def clock_value(ts=None):
+    """Current local time as HHMMSS for the matrix clock mode."""
+    lt = time.localtime(ts)
+    return pack_clock(lt.tm_hour, lt.tm_min, lt.tm_sec)
+
+def clock_seconds_bar(second):
+    """Bottom-row pixel count (0..12) for second 0..59 — mirrors firmware."""
+    s = max(0, min(59, int(second)))
+    return min(12, (s * 12 + 30) // 60)
+
+def _blit_mini_digit(frame, d, x, y_top):
+    if d < 0 or d > 9:
+        return
+    for r, bits in enumerate(FONT2[d]):
+        if bits & 2:
+            frame[y_top + r][x] = 1
+        if bits & 1:
+            frame[y_top + r][x + 1] = 1
+
+def render_clock_frame(hour, minute, second, colon_on=True):
+    """Software 8×12 frame mirroring firmware drawClock (for unit tests)."""
+    frame = [[0] * 12 for _ in range(8)]
+    parts = unpack_clock(pack_clock(hour, minute, second))
+    if parts is None:
+        return frame
+    h, m, s = parts
+    y = 1
+    frame[0][5] = 1
+    frame[0][6] = 1
+    _blit_mini_digit(frame, h // 10, 0, y)
+    _blit_mini_digit(frame, h % 10, 3, y)
+    if colon_on:
+        frame[y + 1][5] = 1
+        frame[y + 3][5] = 1
+    _blit_mini_digit(frame, m // 10, 7, y)
+    _blit_mini_digit(frame, m % 10, 10, y)
+    for x in range(clock_seconds_bar(s)):
+        frame[7][x] = 1
+    return frame
+
 def _downsample12(bands):
     out = []
     for i in range(12):
@@ -303,7 +387,6 @@ def poller():
     while True:
         m = matrix_mode
         now = time.monotonic()
-        need_disco = iris_enabled or m not in ("off", "welle", "temp", "humidity")
         # Mode periodisch nachschieben (USB-Replug / R4-WDT-Reset): sonst bleibt
         # die Matrix leer, wenn der erste mN-Push während des Boots verloren ging.
         if ser is not None and (now - _last_mode_push) >= 8.0:
@@ -317,7 +400,20 @@ def poller():
                     _last_spectrum = None
             except Exception:
                 pass
-        if ser is None or not need_disco:
+        if ser is None:
+            _last_beats = None
+            time.sleep(0.6); continue
+
+        # Clock ohne Iris: Pi-Lokalzeit, kein Disco-Poll
+        if m == "clock" and not iris_enabled:
+            val = clock_value()
+            if val != _last_value:
+                _last_value = val
+                push_matrix("v%d" % val)
+            time.sleep(0.25); continue
+
+        need_disco = iris_enabled or m not in NO_DISCO_MODES
+        if not need_disco:
             _last_beats = None
             time.sleep(0.6); continue
         interval = 0.10 if (iris_enabled or m in ("vu", "spektrum")) else 0.12
@@ -325,6 +421,12 @@ def poller():
         now = time.monotonic()
         if _apply_iris_overlay(st, now):
             time.sleep(interval); continue
+        if m == "clock":
+            val = clock_value()
+            if val != _last_value:
+                _last_value = val
+                push_matrix("v%d" % val)
+            time.sleep(0.25); continue
         if m in ("off", "welle", "temp", "humidity"):
             _last_beats = None
             time.sleep(0.6); continue

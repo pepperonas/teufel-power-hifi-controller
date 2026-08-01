@@ -85,16 +85,26 @@ class TestModeNum:
     def test_humidity_is_9(self):
         assert ib.MODE_NUM["humidity"] == 9
 
+    def test_clock_is_12(self):
+        assert ib.MODE_NUM["clock"] == 12
+        assert ib.CLOCK_MODE == 12
+
     def test_all_unique(self):
         nums = list(ib.MODE_NUM.values())
         assert len(nums) == len(set(nums))
 
     def test_total_count(self):
-        assert len(ib.MODE_NUM) == 11
+        assert len(ib.MODE_NUM) == 12
 
     def test_iris_overlay_mode(self):
         assert ib.IRIS_MODE == 11
         assert 11 not in ib.MODE_NUM.values()  # overlay only, not a saved mode
+        assert 12 in ib.MODE_NUM.values()
+
+    def test_no_disco_modes_include_clock(self):
+        assert "clock" in ib.NO_DISCO_MODES
+        assert "off" in ib.NO_DISCO_MODES
+        assert "db" not in ib.NO_DISCO_MODES
 
     def test_iris_threshold_legacy_fallback(self):
         assert ib.IRIS_DB == -20.0
@@ -116,6 +126,95 @@ class TestModeNum:
     def test_disco_url_defaults_localhost(self):
         assert "127.0.0.1" in ib.DISCO_URL or "localhost" in ib.DISCO_URL
         assert ":5007" in ib.DISCO_URL
+
+
+# ============================================================================
+# 1b. CLOCK packing / layout (firmware mode 12)
+# ============================================================================
+
+class TestClockPacking:
+    def test_pack_roundtrip_noon(self):
+        assert ib.pack_clock(12, 0, 0) == 120000
+        assert ib.unpack_clock(120000) == (12, 0, 0)
+
+    def test_pack_roundtrip_end_of_day(self):
+        assert ib.pack_clock(23, 59, 59) == 235959
+        assert ib.unpack_clock(235959) == (23, 59, 59)
+
+    def test_pack_clamps_out_of_range(self):
+        assert ib.pack_clock(99, 99, 99) == 235959
+        assert ib.pack_clock(-1, -1, -1) == 0
+
+    def test_unpack_clamps_invalid_fields(self):
+        # 25:70:80 would be nonsense — clamps hour/min/sec independently
+        assert ib.unpack_clock(257080) == (23, 59, 59)
+
+    def test_unpack_negative_is_none(self):
+        assert ib.unpack_clock(-1) is None
+        assert ib.unpack_clock(None) is None
+
+    def test_clock_value_matches_localtime(self):
+        import time as _t
+        ts = 1_700_000_000  # fixed
+        lt = _t.localtime(ts)
+        assert ib.clock_value(ts) == ib.pack_clock(lt.tm_hour, lt.tm_min, lt.tm_sec)
+
+    def test_seconds_bar_endpoints(self):
+        assert ib.clock_seconds_bar(0) == 0
+        assert ib.clock_seconds_bar(59) == 12
+        assert ib.clock_seconds_bar(30) == 6
+
+    def test_seconds_bar_monotonic(self):
+        prev = -1
+        for s in range(60):
+            n = ib.clock_seconds_bar(s)
+            assert 0 <= n <= 12
+            assert n >= prev
+            prev = n
+
+    def test_font2_has_ten_glyphs(self):
+        assert len(ib.FONT2) == 10
+        for g in ib.FONT2:
+            assert len(g) == 5
+
+    def test_render_clock_frame_shape(self):
+        fr = ib.render_clock_frame(14, 30, 45, colon_on=True)
+        assert len(fr) == 8
+        assert all(len(row) == 12 for row in fr)
+        assert all(c in (0, 1) for row in fr for c in row)
+
+    def test_render_noon_mark_present(self):
+        fr = ib.render_clock_frame(9, 5, 0, colon_on=False)
+        assert fr[0][5] == 1 and fr[0][6] == 1
+
+    def test_render_colon_optional(self):
+        on = ib.render_clock_frame(10, 10, 10, colon_on=True)
+        off = ib.render_clock_frame(10, 10, 10, colon_on=False)
+        assert on[2][5] == 1 and on[4][5] == 1
+        assert off[2][5] == 0 and off[4][5] == 0
+
+    def test_render_seconds_bar_fills_row7(self):
+        fr = ib.render_clock_frame(0, 0, 59, colon_on=False)
+        assert fr[7] == [1] * 12
+        fr0 = ib.render_clock_frame(0, 0, 0, colon_on=False)
+        assert fr0[7] == [0] * 12
+
+    def test_render_digits_use_distinct_columns(self):
+        # HH at 0/3, MM at 7/10 — no overlap with colon col 5
+        fr = ib.render_clock_frame(18, 36, 0, colon_on=True)
+        # At least one pixel in hour tens (cols 0-1) and minute ones (cols 10-11)
+        assert any(fr[r][0] or fr[r][1] for r in range(1, 6))
+        assert any(fr[r][10] or fr[r][11] for r in range(1, 6))
+        # Colon column only has noon mark + colon dots, not digit ink at y=1..5 except colon
+        # Digit cells should not use col 5 except colon rows 2 and 4
+        assert fr[1][5] == 0
+        assert fr[3][5] == 0
+        assert fr[5][5] == 0
+
+    def test_four_digit_3x5_would_not_fit(self):
+        # Document why we use 2×5: classic 3×5 with gaps needs 15 cols
+        w = 4 * 3 + 3  # four digits + three gaps
+        assert w > 12
 
 
 # ============================================================================
@@ -487,7 +586,7 @@ class TestTcpProtocolParsing:
 
     def test_valid_mode_names(self):
         valid = {"off", "db", "pegel", "bpm", "smiley", "vu", "heart",
-                 "spektrum", "welle", "temp", "humidity"}
+                 "spektrum", "welle", "temp", "humidity", "clock"}
         assert valid == set(ib.MODE_NUM.keys())
 
     def test_frame_query_cmd(self):

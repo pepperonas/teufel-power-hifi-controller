@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0e">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎉</text></svg>">
+<title>R4 LED-Matrix · Live</title>
+<style>
+  * { margin:0; box-sizing:border-box; }
+  html,body { height:100%; }
+  body { background:#0a0a0e; color:#e9e9f2; overflow:hidden;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; }
+  #label { font-size:clamp(.95rem,2.4vw,1.4rem); font-weight:700; letter-spacing:.04em;
+    display:flex; align-items:center; gap:.55rem; opacity:.92; }
+  #label .dot { width:9px; height:9px; border-radius:50%; background:#5a5a6a; transition:background .2s; }
+  #label.live .dot { background:#7ddfa6; box-shadow:0 0 10px #7ddfa6; }
+  #label b { color:#ff3b30; }
+  #stage { flex:0 0 auto; padding:16px; border-radius:22px;
+    background:radial-gradient(120% 120% at 50% 0%, #16161e, #0c0c12);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.05), 0 24px 60px rgba(0,0,0,.55); }
+  canvas { display:block; }
+  #hint { font-size:.72rem; color:#7a7a8c; text-align:center; }
+</style>
+    <script src="/shared/nav.js" defer></script>
+</head>
+<body>
+  <div id="label" aria-live="polite"><span class="dot"></span>R4 LED-Matrix · <b id="mode">–</b></div>
+  <div id="stage"><canvas id="cv"></canvas></div>
+  <div id="hint">24×16-Ansicht der 12×8-Matrix · Arduino UNO R4</div>
+<script>
+// ---- 24x16 grid (= 2x the physical 12x8) -------------------------------------
+const COLS = 24, ROWS = 16;
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const off = document.createElement('canvas'); off.width = COLS; off.height = ROWS;
+const octx = off.getContext('2d');
+const SS = 3;  // supersample factor for crisp text
+const off2 = document.createElement('canvas'); off2.width = COLS*SS; off2.height = ROWS*SS;
+const octx2 = off2.getContext('2d');
+const labelEl = document.getElementById('label'), modeEl = document.getElementById('mode');
+const MODE_NAMES = { off:"Aus", clock:"Uhr", db:"dB", pegel:"Pegel", bpm:"BPM", smiley:"Smiley",
+  vu:"VU-Meter", heart:"Herz", spektrum:"Spektrum", welle:"Welle", temp:"Temperatur",
+  humidity:"Luftfeuchte", iris:"IRIS" };
+let clim = { temp:null, hum:null };
+
+let mode = "off";
+let st = { bpm:0, level:0, db:-60, beats:0, bands:[], confidence:0 };
+let lastBeats = 0, beatUntil = 0, vuPeak = 0, wavePhase = 0, liveTs = 0;
+const IDLE_LEVEL = 0.03, LOUD_DB = -52;
+
+// ---- mask helpers (which of the 24x16 cells are lit) -------------------------
+let mask = Array.from({length:ROWS}, () => new Array(COLS).fill(0));
+function clearMask(){ for(let y=0;y<ROWS;y++) mask[y].fill(0); }
+function px(x,y){ x=Math.floor(x); y=Math.floor(y); if(x>=0&&x<COLS&&y>=0&&y<ROWS) mask[y][x]=1; }
+function maskFromOffscreen(){           // threshold the offscreen canvas alpha into the mask
+  const d = octx.getImageData(0,0,COLS,ROWS).data;
+  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++) mask[y][x] = d[(y*COLS+x)*4+3] > 110 ? 1 : 0;
+}
+function drawTextMask(text){            // crisp digits: render at SS× then coverage-downsample to 24x16
+  const W = COLS*SS, H = ROWS*SS;
+  octx2.clearRect(0,0,W,H);
+  octx2.fillStyle = '#fff'; octx2.textAlign = 'center'; octx2.textBaseline = 'middle';
+  let size = ROWS*SS;                  // fill the height; shrink until it fits the width
+  do { octx2.font = '800 ' + size + 'px "Arial Narrow","Roboto Condensed","Helvetica Neue",sans-serif'; size--; }
+  while ((octx2.measureText(text).width > W - SS*2 || size > H) && size > SS*3);
+  octx2.fillText(text, W/2, H/2 + SS*0.5);
+  const d = octx2.getImageData(0,0,W,H).data;
+  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
+    let a = 0; for(let sy=0;sy<SS;sy++) for(let sx=0;sx<SS;sx++) a += d[((y*SS+sy)*W + (x*SS+sx))*4 + 3];
+    mask[y][x] = (a/(SS*SS)) > 96 ? 1 : 0;   // ~38% coverage = lit (smooth, well-proportioned glyphs)
+  }
+}
+function drawShapeMask(fn){ octx.clearRect(0,0,COLS,ROWS); octx.fillStyle='#fff'; fn(octx); maskFromOffscreen(); }
+function bar(pct){ let n=Math.round(pct/100*COLS); for(let x=0;x<n;x++) px(x,ROWS-1); }   // bottom row fill
+function dashes(){ const y=Math.round(ROWS/2); for(let x=4;x<=9;x++)px(x,y); for(let x=14;x<=19;x++)px(x,y); }
+function stamp(rows, x0, y0){ for(let r=0;r<rows.length;r++) for(let c=0;c<rows[r].length;c++) if(rows[r][c] !== ' ') px(x0+c, y0+r); }
+const HEART = [   // clean 13x11 pixel heart (two lobes top, point bottom)
+  "  ###   ###  ",
+  " ##### ##### ",
+  "#############",
+  "#############",
+  "#############",
+  " ########### ",
+  "  #########  ",
+  "   #######   ",
+  "    #####    ",
+  "     ###     ",
+  "      #      "];
+
+function buildMask(now){
+  clearMask();
+  const idle = st.level < IDLE_LEVEL;
+  const beat = now < beatUntil;
+  switch(mode){
+    case 'pegel': case 'db': {
+      if(idle) dashes();
+      else { drawTextMask(String(Math.round(st.level*100))); bar(st.level*100); }
+      break; }
+    case 'bpm': {
+      if(idle || !st.bpm) dashes();
+      else { drawTextMask(String(st.bpm)); if(now<beatUntil){ for(let x=0;x<COLS;x++){px(x,0);px(x,ROWS-1);} for(let y=0;y<ROWS;y++){px(0,y);px(COLS-1,y);} } }
+      break; }
+    case 'smiley':
+      drawShapeMask(c => { const w = beat ? 5 : 3.4;
+        c.beginPath(); c.arc(7,5,2.2,0,7); c.arc(17,5,2.2,0,7); c.fill();           // eyes
+        c.lineWidth=2.4; c.strokeStyle='#fff'; c.beginPath(); c.arc(12,8,w,0.15*Math.PI,0.85*Math.PI); c.stroke(); }); // smile
+      break;
+    case 'vu': {
+      const h=Math.round((idle?0:st.level)*ROWS); if(h>vuPeak)vuPeak=h;
+      for(let k=0;k<h;k++) for(let x=2;x<COLS-2;x++) px(x,ROWS-1-k);
+      if(vuPeak>0){ const py=Math.round(ROWS-vuPeak); for(let x=2;x<COLS-2;x++) px(x,py); }
+      break; }
+    case 'heart':
+      stamp(HEART, 5, beat ? 1 : 2);   // centered; a little upward bounce on the beat
+      break;
+    case 'spektrum': {
+      const b = st.bands && st.bands.length ? st.bands : [];
+      for(let x=0;x<COLS;x++){ const v = b.length ? b[Math.min(b.length-1, Math.floor(x/COLS*b.length))] : 0;
+        const h=Math.round(v*ROWS); for(let k=0;k<h;k++) px(x,ROWS-1-k); }
+      break; }
+    case 'welle':   // mirrors the sketch's filled sine wave at 2x resolution
+      for(let x=0;x<COLS;x++){ const top=Math.round(7 + 6*Math.sin(x*0.275 + wavePhase));
+        for(let y=Math.max(0,top); y<ROWS; y++) px(x,y); }
+      break;
+    case 'temp':
+      if(clim.temp==null) dashes();
+      else drawTextMask(Math.round(clim.temp) + '°');   // e.g. 27°
+      break;
+    case 'iris':
+      drawTextMask('IRIS');
+      break;
+    case 'humidity':
+      if(clim.hum==null) dashes();
+      else drawTextMask(Math.round(clim.hum) + '%');         // e.g. 63%
+      break;
+    default: break;   // off
+  }
+}
+
+// ---- draw the LED grid -------------------------------------------------------
+function draw(){
+  const dpr = window.devicePixelRatio || 1;
+  const availW = window.innerWidth  - 80, availH = window.innerHeight - 190;
+  const cell = Math.max(4, Math.floor(Math.min(availW/COLS, availH/ROWS)));
+  const cw = cell*COLS, ch = cell*ROWS;
+  if(cv.width !== cw*dpr || cv.height !== ch*dpr){ cv.width=cw*dpr; cv.height=ch*dpr; cv.style.width=cw+'px'; cv.style.height=ch+'px'; }
+  ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,cw,ch);
+  const r = cell*0.42;
+  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
+    const cx = x*cell+cell/2, cy = y*cell+cell/2;
+    if(mask[y][x]){
+      ctx.shadowColor='rgba(255,64,52,.9)'; ctx.shadowBlur=cell*0.7;
+      ctx.fillStyle='#ff4034'; ctx.beginPath(); ctx.arc(cx,cy,r,0,7); ctx.fill();
+      ctx.shadowBlur=0; ctx.fillStyle='rgba(255,196,188,.92)';   // bright hot core
+      ctx.beginPath(); ctx.arc(cx,cy,r*0.46,0,7); ctx.fill();
+    } else {
+      ctx.shadowBlur=0; ctx.fillStyle='rgba(255,80,68,.06)';
+      ctx.beginPath(); ctx.arc(cx,cy,r,0,7); ctx.fill();
+    }
+  }
+  ctx.shadowBlur=0;
+}
+
+// ---- polling -----------------------------------------------------------------
+async function pollMode(){ try{ const r=await fetch('api/matrix',{cache:'no-store'}); const d=await r.json();
+  if(d&&d.mode){ mode=d.mode; modeEl.textContent=MODE_NAMES[d.mode]||d.mode; } }catch(_){} }
+async function pollStatus(){ try{ const r=await fetch('/proxy/disco/api/status',{cache:'no-store'}); const d=await r.json();
+  if(d){ st=d; const nb=(d.beats||0)-lastBeats; if(nb>0 && d.level>=IDLE_LEVEL){ beatUntil=performance.now()+150; } lastBeats=d.beats||0; liveTs=performance.now(); } }catch(_){} }
+
+function loop(ts){
+  wavePhase += 0.05;
+  if(vuPeak > 0) vuPeak -= 0.06;          // slow peak-hold fall
+  buildMask(performance.now());
+  draw();
+  labelEl.classList.toggle('live', performance.now()-liveTs < 2000);
+  requestAnimationFrame(loop);
+}
+async function pollKlima(){ try{ const r=await fetch('/proxy/klima/api/current',{cache:'no-store'}); const d=await r.json();
+  const fresh = d && (d.age_seconds==null || d.age_seconds<600);
+  clim.temp = (fresh && d.temp!=null) ? d.temp : null;
+  clim.hum  = (fresh && d.humidity!=null) ? d.humidity : null; }catch(_){ clim.temp=clim.hum=null; } }
+pollMode(); pollStatus(); pollKlima(); setInterval(pollMode, 1000); setInterval(pollStatus, 90); setInterval(pollKlima, 10000);
+requestAnimationFrame(loop); window.addEventListener('resize', draw);
+</script>
+</body>
+</html>

@@ -68,7 +68,7 @@ This project provides comprehensive infrared (IR) remote control for Teufel Powe
 - **🎛️ Full Control** — Power, volume, mute, bass, treble, balance, input selection
 - **📱 Mobile Ready** — Touch-optimized interface for phones and tablets
 - **🚀 Production Ready** — PM2 process management with auto-restart
-- **📟 LED Matrix Readout** — live **SPL dB** / BPM on the UNO R4 12×8 matrix (disco on raspi5); optional **Iris** overlay when disco `warn_over` (shared `warn_thr` with Warnung / Strip-Warn)
+- **📟 LED Matrix Readout** — live **SPL dB** / BPM / effects on the UNO R4 12×8 matrix; **Uhr** mode (condensed HH:MM + seconds bar, firmware mode 12); optional **Iris** overlay on disco `warn_over`
 - **✨ MD3 Expressive UI** — animated theme switch + state-reactive, prefers-reduced-motion-aware motion
 
 ## 🔁 Two IR Back-Ends — pigpio vs. Arduino Nano Serial Bridge
@@ -174,25 +174,28 @@ Dashboard (Disco card) → nginx → Node /api/matrix → ir_bridge.py
 | Line | Meaning |
 |---|---|
 | `<HEX>` e.g. `48` | IR command → `sendNEC(0x5780, 0x48)` (unchanged) |
-| `m0`..`m7` | matrix mode: 0 off · 1 Pegel · 2 BPM · 3 Smiley · 4 VU-Meter · 5 Herz · 6 Spektrum · 7 Welle · 8 Temperatur · 9 Luftfeuchte |
+| `m0`..`m12` | matrix mode: 0 off · 1 Pegel · 2 BPM · 3 Smiley · 4 VU · 5 Herz · 6 Spektrum · 7 Welle · 8 Temp · 9 Humidity · 10 dB · **12 Uhr/clock** (11 = Iris overlay only) |
 | `s<12>` | spectrum column heights (12 chars `0`..`8`), for the Spektrum mode |
 | `v<int>` e.g. `v126` | value for the current mode |
+| `vHHMMSS` e.g. `v143045` | **clock mode**: packed local time (hour×10000 + min×100 + sec) |
 | `v-1` | idle / silence -> the matrix shows `--` |
 | `f` | beat flash -- a brief frame pulse (BPM mode) |
 
-IR codes are pure hex digits; `m`/`v` are not, so the sketch tells them apart unambiguously. The matrix renders the number with a compact 3×5 font plus a mode indicator (**block top-left = dB**, **peak top-right = BPM**). In **dB mode** the bottom row is a live **level bar** (0–100); during **silence** the matrix shows `--`; and in **BPM mode** the frame **pulses on every detected beat** (`ir_bridge.py` polls faster — ~0.12 s — and emits `f` when the beat counter advances).
+IR codes are pure hex digits; `m`/`v` are not, so the sketch tells them apart unambiguously. Most numeric modes use a compact **3×5** font. **Clock mode** uses a condensed **2×5** font so `HH:MM` fits on 12 columns, with a blinking colon and a bottom **seconds bar**.
 
 ### Display modes
 
 Selectable from the dashboard (custom dropdown in the Disco card):
-**Aus**, **Pegel** (level number + bar), **BPM** (number + gentle beat pulse), **Smiley** (winks on the beat), **VU-Meter** (level block + peak-hold), **Herz** (beats with the music), **Spektrum** (12-column live spectrum from the disco bands) **Welle** (self-running sine wave), plus **Temperatur** / **Luftfeuchte** (the live ENV-III reading from raumklima, shown as `27°` / `63%` — integer + unit glyph). Audio-reactive modes are fed by `ir_bridge.py` (level / bpm / beats / spectrum); the beat pulse is rate-limited so fast tempos stay readable.
+**Aus**, **Uhr** (local HH:MM + seconds sweep — Pi NTP), **Pegel**, **BPM**, **Smiley**, **VU-Meter**, **Herz**, **Spektrum**, **Welle**, **Temperatur** / **Luftfeuchte**, **dB**. Audio-reactive modes are fed by `ir_bridge.py`; **Uhr** needs no disco poll (Iris can still overlay).
+
+**Clock layout (clever 12×8 fit):** four classic 3×5 digits with gaps need 15 columns — too wide. So the firmware draws **2×5 condensed digits** (`FONT2`), colon in column 5 (blinks via `millis/500`), noon-mark on row 0, and maps seconds 0…59 → 0…12 pixels on row 7. Bridge packs `clock_value()` → `vHHMMSS` about 4×/s.
 
 ### Control & components
 
-* **Dashboard** — Disco card → **🔢 R4-Matrix** select (**Aus / dB-Pegel / BPM**); reflects the persisted mode on load.
-* **`ir_bridge.py`** — a background poller GETs `disco-controller` `/api/status` *only while a mode is active* (off ⇒ no polling), computes the value (dB → `round(level·100)`, BPM → `bpm`) and pushes it. Mode is set via the TCP command `MATRIX <off|db|bpm>` and persisted in `matrix_mode.txt`.
-* **`server.js`** — `GET` / `POST /api/matrix` ↔ the bridge.
-* **Sketch** — `arduino/teufel-ir-serial-bridge/` renders digits + indicator and keeps IR working alongside (verified: IR + matrix coexist).
+* **Dashboard** — Disco card → **R4-Matrix** select (**Aus / Uhr / Pegel / …**); reflects the persisted mode on load.
+* **`ir_bridge.py`** — poller GETs disco `/api/status` only for audio-reactive modes; **clock** pushes local time without disco. Mode via TCP `MATRIX <name>`, persisted in `matrix_mode.txt`.
+* **`server.js`** — `GET` / `POST /api/matrix` ↔ the bridge (allowlist includes `clock`).
+* **Sketch** — shared R4 firmware in gartenklima/raumklima `arduino/r4-firmware/` (mode 12 `drawClock`).
 
 ## ✨ UI — Material 3 Expressive motion
 
