@@ -216,6 +216,18 @@ pm2 restart all
 sudo systemctl restart pigpiod
 ```
 
+## R4 LED matrix (raspi5 / teufel-ir-bridge)
+
+Shared firmware lives in gartenklima/raumklima `arduino/r4-firmware/` (not this repo’s `arduino/`).
+
+| Mode name | Firmware `mN` | Notes |
+|-----------|---------------|--------|
+| `clock` / Uhr | 12 | Digital HH:MM (`FONT2`), blink colon, corner pips — **no** seconds bar |
+| `analog` / Wanduhr | 13 | Analog face: cardinal ticks, hour/minute hands, second rim tip |
+| (both) | `vHHMMSS` | Packed local time from `ir_bridge.clock_value()` ~4×/s |
+
+Serial: plain ACM open + `m0` probe; **avoid** 1200-baud touch and `stty` ExecStartPre on `/dev/ttyACM0` (wedges USB-CDC). Drop-in on raspi5: `/etc/systemd/system/teufel-ir-bridge.service.d/no-stty.conf`.
+
 ## Contributing
 
 1. Test changes thoroughly with actual hardware

@@ -7,17 +7,18 @@ offen und nimmt IR-Befehle ueber einen lokalen TCP-Socket entgegen (kein
 Arduino-Reset pro Tastendruck).
 
 Zusaetzlich: die R4-LED-Matrix zeigt Pegel/dB/BPM/Effekte/Klima, **Uhr** (Mode 12,
-kompakte HH:MM + Sekundenbalken) oder Iris-Overlay. Umschaltung aus dem
+digitale HH:MM), **Wanduhr** (Mode 13, analog) oder Iris-Overlay. Umschaltung aus dem
 Smart-Home-Dashboard via powerhifi-controller -> "MATRIX <mode>".
 
 TCP 127.0.0.1:8799 (eine Zeile):
     CMD_POWER            -> IR 1x
     CMD_VOLUME_DOWN 5    -> IR 5x
-    MATRIX clock         -> Matrix-Modus setzen (off|clock|db|bpm|…), persistent
+    MATRIX clock         -> Matrix-Modus setzen (off|clock|analog|db|bpm|…), persistent
     MATRIX?              -> aktuellen Modus abfragen -> "OK <mode>"
-Serielles Protokoll zum Arduino: IR=<HEX>, Matrix-Modus=m<n>, Wert=v<int> (clock: vHHMMSS).
+Serielles Protokoll zum Arduino: IR=<HEX>, Matrix-Modus=m<n>, Wert=v<int> (clock/analog: vHHMMSS).
 """
 import serial, socket, threading, time, glob, os, json, urllib.request
+import math
 
 BAUD = 115200
 HOST, TCP_PORT = "127.0.0.1", 8799
@@ -26,17 +27,20 @@ DISCO_URL = os.environ.get("DISCO_URL", "http://127.0.0.1:5007/api/status")
 MATRIX_FILE = "/home/pi/apps/powerhifi-controller/matrix_mode.txt"
 IRIS_FILE = "/home/pi/apps/powerhifi-controller/matrix_iris.txt"
 MODE_NUM = {"temp": 8, "humidity": 9, "off": 0, "pegel": 1, "bpm": 2, "smiley": 3,
-            "vu": 4, "heart": 5, "spektrum": 6, "welle": 7, "db": 10, "clock": 12}
+            "vu": 4, "heart": 5, "spektrum": 6, "welle": 7, "db": 10, "clock": 12,
+            "analog": 13}
 IRIS_MODE = 11                 # firmware bitmap "IRIS" (overlay, not a saved mode)
-CLOCK_MODE = 12                # firmware HH:MM + seconds bar (v=HHMMSS)
-NO_DISCO_MODES = frozenset({"off", "welle", "temp", "humidity", "clock"})
+CLOCK_MODE = 12                # firmware digital HH:MM (v=HHMMSS)
+ANALOG_MODE = 13               # firmware analog wall-clock (v=HHMMSS)
+CLOCK_MODES = frozenset({"clock", "analog"})
+NO_DISCO_MODES = frozenset({"off", "welle", "temp", "humidity"}) | CLOCK_MODES
 IRIS_DB = -20.0                # legacy fallback ≈70 SPL if status lacks warn_over/warn_thr
 QUIET_LOG_FACTOR = 1.3         # LAUT/quiet_log damps reported dB → scale legacy thr too
 
 # Condensed 2×5 font — mirrors firmware FONT2 for layout unit tests
 FONT2 = (
     (0b11, 0b10, 0b10, 0b10, 0b11),  # 0
-    (0b01, 0b01, 0b01, 0b01, 0b01),  # 1
+    (0b01, 0b11, 0b01, 0b01, 0b01),  # 1 (top flag)
     (0b11, 0b01, 0b11, 0b10, 0b11),  # 2
     (0b11, 0b01, 0b11, 0b01, 0b11),  # 3
     (0b10, 0b10, 0b11, 0b01, 0b01),  # 4
@@ -108,14 +112,9 @@ def unpack_clock(v):
     return h, m, s
 
 def clock_value(ts=None):
-    """Current local time as HHMMSS for the matrix clock mode."""
+    """Current local time as HHMMSS for matrix clock / analog modes."""
     lt = time.localtime(ts)
     return pack_clock(lt.tm_hour, lt.tm_min, lt.tm_sec)
-
-def clock_seconds_bar(second):
-    """Bottom-row pixel count (0..12) for second 0..59 — mirrors firmware."""
-    s = max(0, min(59, int(second)))
-    return min(12, (s * 12 + 30) // 60)
 
 def _blit_mini_digit(frame, d, x, y_top):
     if d < 0 or d > 9:
@@ -126,25 +125,74 @@ def _blit_mini_digit(frame, d, x, y_top):
         if bits & 1:
             frame[y_top + r][x + 1] = 1
 
+def _frame_px(frame, x, y):
+    if 0 <= x < 12 and 0 <= y < 8:
+        frame[y][x] = 1
+
+def _frame_line(frame, x0, y0, x1, y1):
+    dx, sx = abs(x1 - x0), (1 if x0 < x1 else -1)
+    dy, sy = -abs(y1 - y0), (1 if y0 < y1 else -1)
+    err = dx + dy
+    while True:
+        _frame_px(frame, x0, y0)
+        if x0 == x1 and y0 == y1:
+            break
+        e2 = 2 * err
+        if e2 >= dy:
+            err += dy
+            x0 += sx
+        if e2 <= dx:
+            err += dx
+            y0 += sy
+
+def _frame_hand(frame, cx, cy, ang_deg, length):
+    rad = math.radians(ang_deg)
+    x1 = int(round(cx + math.sin(rad) * length))
+    y1 = int(round(cy - math.cos(rad) * length))
+    _frame_line(frame, int(round(cx)), int(round(cy)), x1, y1)
+
 def render_clock_frame(hour, minute, second, colon_on=True):
-    """Software 8×12 frame mirroring firmware drawClock (for unit tests)."""
+    """Software 8×12 frame mirroring firmware drawClock (digital, no bars)."""
+    frame = [[0] * 12 for _ in range(8)]
+    parts = unpack_clock(pack_clock(hour, minute, second))
+    if parts is None:
+        return frame
+    h, m, _s = parts
+    y = 1
+    _frame_px(frame, 0, 0)
+    _frame_px(frame, 11, 0)
+    _frame_px(frame, 0, 7)
+    _frame_px(frame, 11, 7)
+    _blit_mini_digit(frame, h // 10, 0, y)
+    _blit_mini_digit(frame, h % 10, 3, y)
+    if colon_on:
+        _frame_px(frame, 5, y + 1)
+        _frame_px(frame, 5, y + 3)
+    _blit_mini_digit(frame, m // 10, 7, y)
+    _blit_mini_digit(frame, m % 10, 10, y)
+    return frame
+
+def render_analog_frame(hour, minute, second):
+    """Software 8×12 frame mirroring firmware drawAnalogClock."""
     frame = [[0] * 12 for _ in range(8)]
     parts = unpack_clock(pack_clock(hour, minute, second))
     if parts is None:
         return frame
     h, m, s = parts
-    y = 1
-    frame[0][5] = 1
-    frame[0][6] = 1
-    _blit_mini_digit(frame, h // 10, 0, y)
-    _blit_mini_digit(frame, h % 10, 3, y)
-    if colon_on:
-        frame[y + 1][5] = 1
-        frame[y + 3][5] = 1
-    _blit_mini_digit(frame, m // 10, 7, y)
-    _blit_mini_digit(frame, m % 10, 10, y)
-    for x in range(clock_seconds_bar(s)):
-        frame[7][x] = 1
+    cx, cy = 5.5, 3.5
+    for x, y in ((5, 0), (6, 0), (11, 3), (11, 4), (5, 7), (6, 7), (0, 3), (0, 4),
+                 (9, 1), (10, 6), (2, 6), (1, 1)):
+        _frame_px(frame, x, y)
+    h_ang = ((h % 12) + m / 60.0) * 30.0
+    m_ang = (m + s / 60.0) * 6.0
+    s_ang = s * 6.0
+    _frame_hand(frame, cx, cy, h_ang, 2.15)
+    _frame_hand(frame, cx, cy, m_ang, 3.25)
+    rad = math.radians(s_ang)
+    _frame_px(frame, int(round(cx + math.sin(rad) * 3.7)),
+              int(round(cy - math.cos(rad) * 3.7)))
+    _frame_px(frame, 5, 3)
+    _frame_px(frame, 6, 3)
     return frame
 
 def _downsample12(bands):
@@ -167,36 +215,22 @@ def try_open_serial():
     global ser, _serial_booted, latest_frame
     port = find_port()
     try:
-        _serial_booted = False  # reader pauses — we need boot lines ourselves
-        # 1200-baud touch resets R4 + re-enumerates USB. Must close and reopen
-        # on a fresh handle (in-place DTR leaves a dead CDC endpoint).
+        _serial_booted = False
+        # Plain open — matching a working interactive session. No 1200-touch,
+        # no dsrdtr flags (both have wedged this R4's USB-CDC in the past).
+        s = serial.Serial(port, BAUD, timeout=0.4)
         try:
-            touch = serial.Serial(port, 1200, timeout=0.2)
-            touch.close()
+            s.reset_input_buffer()
         except Exception:
             pass
-        # Wait until the ACM node is back after re-enumeration
-        s = None
-        deadline_port = time.monotonic() + 8.0
-        while time.monotonic() < deadline_port:
-            port = find_port()
-            if os.path.exists(port):
-                try:
-                    s = serial.Serial(port, BAUD, timeout=0.4, dsrdtr=False, rtscts=False)
-                    break
-                except Exception:
-                    s = None
-            time.sleep(0.3)
-        if s is None:
-            raise RuntimeError("R4 port not back after 1200-touch")
+        # Quick probe: if the board is in loop(), m0 yields "M0".
         try:
-            s.dtr = False
-            s.rts = False
+            s.write(b"m0\n")
+            s.flush()
         except Exception:
             pass
-        ser = s
-        saw_ready = False
-        deadline = time.monotonic() + 14.0
+        saw = False
+        deadline = time.monotonic() + 2.0
         while time.monotonic() < deadline:
             try:
                 line = s.readline().decode(errors="replace").strip()
@@ -204,19 +238,14 @@ def try_open_serial():
                 break
             if not line:
                 continue
-            low = line.lower()
-            # "ready" = setup done; F-frames mean loop() already running
-            if low == "ready" or (line[0] == "F" and len(line) >= 25):
-                saw_ready = True
+            if line.lower() == "ready" or line[0] in ("M", "F"):
+                saw = True
                 if line[0] == "F" and len(line) >= 25:
                     latest_frame = line[1:25]
                 break
-        try:
-            s.reset_input_buffer()
-        except Exception:
-            pass
+        ser = s
         _serial_booted = True
-        print("Serial offen: %s (ready=%s)" % (port, saw_ready), flush=True)
+        print("Serial offen: %s (ready=%s)" % (port, saw), flush=True)
         return True
     except Exception as e:
         print("Serial-Open-Fehler:", e, flush=True)
@@ -241,7 +270,7 @@ def serial_loop():
                     time.sleep(delay)
                     try:
                         push_matrix("m%d" % MODE_NUM[matrix_mode])
-                        if matrix_mode == "clock":
+                        if matrix_mode in CLOCK_MODES:
                             push_matrix("v%d" % clock_value())
                             _last_value = clock_value()
                     except Exception:
@@ -449,8 +478,8 @@ def poller():
             _last_beats = None
             time.sleep(0.6); continue
 
-        # Clock ohne Iris: Pi-Lokalzeit, kein Disco-Poll
-        if m == "clock" and not iris_enabled:
+        # Clock / Wanduhr ohne Iris: Pi-Lokalzeit, kein Disco-Poll
+        if m in CLOCK_MODES and not iris_enabled:
             val = clock_value()
             if val != _last_value:
                 _last_value = val
@@ -466,7 +495,7 @@ def poller():
         now = time.monotonic()
         if _apply_iris_overlay(st, now):
             time.sleep(interval); continue
-        if m == "clock":
+        if m in CLOCK_MODES:
             val = clock_value()
             if val != _last_value:
                 _last_value = val

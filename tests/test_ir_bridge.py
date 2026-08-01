@@ -89,20 +89,27 @@ class TestModeNum:
         assert ib.MODE_NUM["clock"] == 12
         assert ib.CLOCK_MODE == 12
 
+    def test_analog_is_13(self):
+        assert ib.MODE_NUM["analog"] == 13
+        assert ib.ANALOG_MODE == 13
+
     def test_all_unique(self):
         nums = list(ib.MODE_NUM.values())
         assert len(nums) == len(set(nums))
 
     def test_total_count(self):
-        assert len(ib.MODE_NUM) == 12
+        assert len(ib.MODE_NUM) == 13
 
     def test_iris_overlay_mode(self):
         assert ib.IRIS_MODE == 11
         assert 11 not in ib.MODE_NUM.values()  # overlay only, not a saved mode
         assert 12 in ib.MODE_NUM.values()
+        assert 13 in ib.MODE_NUM.values()
 
     def test_no_disco_modes_include_clock(self):
         assert "clock" in ib.NO_DISCO_MODES
+        assert "analog" in ib.NO_DISCO_MODES
+        assert ib.CLOCK_MODES == frozenset({"clock", "analog"})
         assert "off" in ib.NO_DISCO_MODES
         assert "db" not in ib.NO_DISCO_MODES
 
@@ -159,19 +166,6 @@ class TestClockPacking:
         lt = _t.localtime(ts)
         assert ib.clock_value(ts) == ib.pack_clock(lt.tm_hour, lt.tm_min, lt.tm_sec)
 
-    def test_seconds_bar_endpoints(self):
-        assert ib.clock_seconds_bar(0) == 0
-        assert ib.clock_seconds_bar(59) == 12
-        assert ib.clock_seconds_bar(30) == 6
-
-    def test_seconds_bar_monotonic(self):
-        prev = -1
-        for s in range(60):
-            n = ib.clock_seconds_bar(s)
-            assert 0 <= n <= 12
-            assert n >= prev
-            prev = n
-
     def test_font2_has_ten_glyphs(self):
         assert len(ib.FONT2) == 10
         for g in ib.FONT2:
@@ -183,9 +177,13 @@ class TestClockPacking:
         assert all(len(row) == 12 for row in fr)
         assert all(c in (0, 1) for row in fr for c in row)
 
-    def test_render_noon_mark_present(self):
+    def test_render_corner_pips_present(self):
         fr = ib.render_clock_frame(9, 5, 0, colon_on=False)
-        assert fr[0][5] == 1 and fr[0][6] == 1
+        assert fr[0][0] == 1 and fr[0][11] == 1
+        assert fr[7][0] == 1 and fr[7][11] == 1
+        # no noon strip / seconds bar
+        assert fr[0][5] == 0 and fr[0][6] == 0
+        assert fr[7][1:11] == [0] * 10
 
     def test_render_colon_optional(self):
         on = ib.render_clock_frame(10, 10, 10, colon_on=True)
@@ -193,11 +191,10 @@ class TestClockPacking:
         assert on[2][5] == 1 and on[4][5] == 1
         assert off[2][5] == 0 and off[4][5] == 0
 
-    def test_render_seconds_bar_fills_row7(self):
+    def test_render_no_seconds_bar(self):
         fr = ib.render_clock_frame(0, 0, 59, colon_on=False)
-        assert fr[7] == [1] * 12
-        fr0 = ib.render_clock_frame(0, 0, 0, colon_on=False)
-        assert fr0[7] == [0] * 12
+        # row 7 only has corner pips
+        assert fr[7] == [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
 
     def test_render_digits_use_distinct_columns(self):
         # HH at 0/3, MM at 7/10 — no overlap with colon col 5
@@ -205,8 +202,6 @@ class TestClockPacking:
         # At least one pixel in hour tens (cols 0-1) and minute ones (cols 10-11)
         assert any(fr[r][0] or fr[r][1] for r in range(1, 6))
         assert any(fr[r][10] or fr[r][11] for r in range(1, 6))
-        # Colon column only has noon mark + colon dots, not digit ink at y=1..5 except colon
-        # Digit cells should not use col 5 except colon rows 2 and 4
         assert fr[1][5] == 0
         assert fr[3][5] == 0
         assert fr[5][5] == 0
@@ -215,6 +210,23 @@ class TestClockPacking:
         # Document why we use 2×5: classic 3×5 with gaps needs 15 cols
         w = 4 * 3 + 3  # four digits + three gaps
         assert w > 12
+
+    def test_render_analog_has_cardinal_ticks(self):
+        fr = ib.render_analog_frame(12, 0, 0)
+        assert fr[0][5] == 1 and fr[0][6] == 1  # 12
+        assert fr[3][11] == 1 and fr[4][11] == 1  # 3
+        assert fr[7][5] == 1 and fr[7][6] == 1  # 6
+        assert fr[3][0] == 1 and fr[4][0] == 1  # 9
+        assert fr[3][5] == 1 and fr[3][6] == 1  # hub
+
+    def test_render_analog_hands_differ_by_time(self):
+        noon = ib.render_analog_frame(12, 0, 0)
+        three = ib.render_analog_frame(3, 0, 0)
+        assert noon != three
+        # at 12:00 hour hand points up — pixel above hub lit
+        assert any(noon[r][5] or noon[r][6] for r in (1, 2))
+        # at 3:00 hour hand points right
+        assert any(three[3][c] or three[4][c] for c in (8, 9, 10))
 
 
 # ============================================================================
@@ -586,7 +598,7 @@ class TestTcpProtocolParsing:
 
     def test_valid_mode_names(self):
         valid = {"off", "db", "pegel", "bpm", "smiley", "vu", "heart",
-                 "spektrum", "welle", "temp", "humidity", "clock"}
+                 "spektrum", "welle", "temp", "humidity", "clock", "analog"}
         assert valid == set(ib.MODE_NUM.keys())
 
     def test_frame_query_cmd(self):

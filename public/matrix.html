@@ -39,7 +39,7 @@ const SS = 3;  // supersample factor for crisp text
 const off2 = document.createElement('canvas'); off2.width = COLS*SS; off2.height = ROWS*SS;
 const octx2 = off2.getContext('2d');
 const labelEl = document.getElementById('label'), modeEl = document.getElementById('mode');
-const MODE_NAMES = { off:"Aus", clock:"Uhr", db:"dB", pegel:"Pegel", bpm:"BPM", smiley:"Smiley",
+const MODE_NAMES = { off:"Aus", clock:"Uhr", analog:"Wanduhr", db:"dB", pegel:"Pegel", bpm:"BPM", smiley:"Smiley",
   vu:"VU-Meter", heart:"Herz", spektrum:"Spektrum", welle:"Welle", temp:"Temperatur",
   humidity:"Luftfeuchte", iris:"IRIS" };
 let clim = { temp:null, hum:null };
