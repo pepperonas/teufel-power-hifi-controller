@@ -166,8 +166,8 @@ def try_open_serial():
     global ser
     port = find_port()
     try:
-        # DTR-Reset: nach Port-Close ist der R4-USB-CDC oft totstumm. Reset + auf
-        # "ready" warten (setup inkl. WiFi kann >2 s dauern), sonst gehen m/v verloren.
+        # DTR-Reset weckt den CDC nach Port-Close. Boot-Logs unter ser_lock lesen,
+        # damit der reader-Thread keine Zeilen (inkl. "ready") wegschnappt.
         s = serial.Serial(port, BAUD, timeout=0.4, dsrdtr=True, rtscts=False)
         try:
             s.dtr = True
@@ -176,21 +176,25 @@ def try_open_serial():
             s.rts = False
         except Exception:
             pass
-        deadline = time.monotonic() + 14.0
+        ser = s  # reader may start seeing the port; lock serializes readline
         saw_ready = False
+        deadline = time.monotonic() + 14.0
         while time.monotonic() < deadline:
-            try:
-                line = s.readline().decode(errors="replace").strip()
-            except Exception:
-                break
+            with ser_lock:
+                try:
+                    line = s.readline().decode(errors="replace").strip()
+                except Exception:
+                    line = ""
             if not line:
                 continue
-            if line.lower() == "ready" or line.startswith("BOOT"):
-                if line.lower() == "ready":
-                    saw_ready = True
-                    break
-        s.reset_input_buffer()
-        ser = s
+            if line.lower() == "ready":
+                saw_ready = True
+                break
+        with ser_lock:
+            try:
+                s.reset_input_buffer()
+            except Exception:
+                pass
         print("Serial offen: %s (ready=%s)" % (port, saw_ready), flush=True)
         return True
     except Exception as e:
@@ -261,7 +265,8 @@ def reader():
         if s is None:
             time.sleep(0.3); continue
         try:
-            line = s.readline().decode(errors="replace").strip()
+            with ser_lock:
+                line = s.readline().decode(errors="replace").strip()
         except Exception:
             time.sleep(0.2); continue
         if line and line[0] == "F" and len(line) >= 25:
