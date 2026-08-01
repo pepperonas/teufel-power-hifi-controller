@@ -22,14 +22,15 @@ import serial, socket, threading, time, glob, os, json, urllib.request
 
 BAUD = 115200
 HOST, TCP_PORT = "127.0.0.1", 8799
-DISCO_URL = "http://127.0.0.1:5007/api/status"
+# disco-controller is colocated with the matrix bridge (raspi5); override via env if needed
+DISCO_URL = os.environ.get("DISCO_URL", "http://127.0.0.1:5007/api/status")
 MATRIX_FILE = "/home/pi/apps/powerhifi-controller/matrix_mode.txt"
 IRIS_FILE = "/home/pi/apps/powerhifi-controller/matrix_iris.txt"
 MODE_NUM = {"temp": 8, "humidity": 9, "off": 0, "pegel": 1, "bpm": 2, "smiley": 3,
             "vu": 4, "heart": 5, "spektrum": 6, "welle": 7, "db": 10}
 IRIS_MODE = 11                 # firmware bitmap "IRIS" (overlay, not a saved mode)
-IRIS_DB = -20.0                # ≈70 dB SPL (offset 90); same as dashboard NEIGHBOR_DB
-QUIET_LOG_FACTOR = 1.3         # LAUT/quiet_log damps reported dB → scale threshold too
+IRIS_DB = -20.0                # legacy fallback ≈70 SPL if status lacks warn_over/warn_thr
+QUIET_LOG_FACTOR = 1.3         # LAUT/quiet_log damps reported dB → scale legacy thr too
 
 CODES = {
     "CMD_POWER": 0x48, "CMD_BLUETOOTH": 0x40, "CMD_MUTE": 0x28,
@@ -45,7 +46,7 @@ CODES = {
 ser = None
 ser_lock = threading.Lock()
 matrix_mode = "off"
-iris_enabled = False       # Overlay: show "IRIS" while reported dB > threshold
+iris_enabled = False       # Overlay: show "IRIS" while disco warn_over (shared thr)
 _iris_showing = False      # currently displaying firmware mode 11
 latest_frame = ""          # last 12x8 frame streamed by the R4 ('F'+24 hex), for the 1:1 viewer
 _last_value = None
@@ -212,10 +213,37 @@ def set_iris(enabled):
     return True
 
 def iris_threshold(quiet_log):
-    """dBFS-Schwelle auf der *berichteten* Skala (disco status.db).
-       quiet_log dämpft db um QUIET_LOG_FACTOR → Schwellwert mitziehen, damit
-       dieselbe reale Lautstärke Iris auslöst (wie Dashboard-NEIGHBOR_DB)."""
+    """Legacy dBFS fallback when disco status has neither warn_over nor warn_thr."""
     return IRIS_DB * QUIET_LOG_FACTOR if quiet_log else IRIS_DB
+
+def iris_loud(st):
+    """Same loud predicate as disco Warnung + Strip-Warn (status.warn_over).
+
+    Prefer the server bit so Matrix „IRIS“, page/card wash and LED strip fire
+    at the configured warn_thr with identical rounding. Fallbacks keep older
+    disco builds working.
+    """
+    if not st:
+        return False
+    wo = st.get("warn_over")
+    if isinstance(wo, bool):
+        return wo
+    # Prefer SPL + warn_thr (same units as the UI number field)
+    try:
+        spl = st.get("spl")
+        thr = st.get("warn_thr")
+        if spl is not None and thr is not None:
+            return round(float(spl), 1) > float(thr)
+    except (TypeError, ValueError):
+        pass
+    # Legacy: reported dBFS vs fixed Iris mark
+    raw = st.get("db")
+    try:
+        db = float(raw) if raw is not None else None
+    except (TypeError, ValueError):
+        db = None
+    thr = iris_threshold(bool(st.get("quiet_log")))
+    return db is not None and db > thr
 
 def set_matrix_mode(mode):
     global matrix_mode, _last_value, _last_beats, _last_spectrum, _iris_showing
@@ -239,7 +267,7 @@ def poll_disco():
         return None
 
 def _apply_iris_overlay(st, now):
-    """Wenn Iris an und dB über Schwelle → Mode 11; sonst Effekt wiederherstellen."""
+    """Wenn Iris an und warn_over (gemeinsame Schwelle) → Mode 11 „IRIS“."""
     global _iris_showing, _iris_since, _last_value, _last_beats, _last_spectrum
     if not iris_enabled or st is None:
         if _iris_showing:
@@ -249,13 +277,7 @@ def _apply_iris_overlay(st, now):
             _last_spectrum = None
             push_matrix("m%d" % MODE_NUM[matrix_mode])
         return False
-    raw = st.get("db")
-    try:
-        db = float(raw) if raw is not None else None
-    except (TypeError, ValueError):
-        db = None
-    thr = iris_threshold(bool(st.get("quiet_log")))
-    loud = db is not None and db > thr
+    loud = iris_loud(st)
     if loud:
         if not _iris_showing:
             _iris_showing = True
@@ -275,7 +297,7 @@ def _apply_iris_overlay(st, now):
 def poller():
     """Schiebt periodisch Wert/Beat auf die Matrix, wenn ein Modus aktiv ist.
        Idle (Stille) -> "--"; im BPM-Modus zusaetzlich Beat-Flash + schnelleres Polling.
-       Iris-Overlay: bei dB > Schwelle kurzzeitig „IRIS“ (Mode 11) statt Effekt."""
+       Iris-Overlay: bei warn_over (gemeinsame warn_thr) kurz „IRIS“ (Mode 11)."""
     global _last_value, _last_beats, _last_flash_ts, _last_spectrum
     _last_mode_push = 0.0
     while True:

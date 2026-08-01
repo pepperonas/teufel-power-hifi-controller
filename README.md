@@ -68,7 +68,7 @@ This project provides comprehensive infrared (IR) remote control for Teufel Powe
 - **🎛️ Full Control** — Power, volume, mute, bass, treble, balance, input selection
 - **📱 Mobile Ready** — Touch-optimized interface for phones and tablets
 - **🚀 Production Ready** — PM2 process management with auto-restart
-- **📟 LED Matrix Readout** — live **SPL dB** / BPM on the UNO R4 12×8 matrix (disco data, USB-serial); optional **Iris** overlay when loud (~70 dB / −20 dBFS, ×1.3 in LAUT mode)
+- **📟 LED Matrix Readout** — live **SPL dB** / BPM on the UNO R4 12×8 matrix (disco on raspi5); optional **Iris** overlay when disco `warn_over` (shared `warn_thr` with Warnung / Strip-Warn)
 - **✨ MD3 Expressive UI** — animated theme switch + state-reactive, prefers-reduced-motion-aware motion
 
 ## 🔁 Two IR Back-Ends — pigpio vs. Arduino Nano Serial Bridge
@@ -158,7 +158,7 @@ Supported `CMD_*` names: `CMD_POWER`, `CMD_MUTE`, `CMD_BLUETOOTH`, `CMD_VOLUME_U
 
 When the IR sender is an **Arduino UNO R4 WiFi**, its built-in **12×8 LED matrix** doubles as a live readout for the `disco-controller` (the mic-driven beat/loudness analyzer running on the same Pi). It shows **exactly one value at a time** — either the **phone-comparable SPL (0–99)** or the **BPM** — with a small on-matrix indicator for the mode. Switched from the smart-home dashboard.
 
-**Iris overlay (2026-07-31):** `POST /api/matrix/iris {iris:true}` enables firmware mode 11 („IRIS“) whenever reported disco `db` exceeds **−20 dBFS ≈ 70 dB SPL**. In LAUT/`quiet_log` mode the threshold scales by **×1.3** (same damping as the reported dB). Overlay is not a saved matrix mode; the previous effect resumes under the threshold.
+**Iris overlay:** `POST /api/matrix/iris {iris:true}` enables firmware mode 11 („IRIS“) whenever disco status reports **`warn_over`** (same bit as dashboard Warnung + Strip-Warn: `round(spl,1) > warn_thr`). Polls `DISCO_URL` (default `http://127.0.0.1:5007/api/status`). Overlay is not a saved matrix mode; the previous effect resumes when under threshold (with a short anti-flicker hold). Legacy fallback: fixed −20 dBFS if `warn_over`/`warn_thr` are absent.
 
 ### How the data gets there (performance)
 

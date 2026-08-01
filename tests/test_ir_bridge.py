@@ -96,10 +96,26 @@ class TestModeNum:
         assert ib.IRIS_MODE == 11
         assert 11 not in ib.MODE_NUM.values()  # overlay only, not a saved mode
 
-    def test_iris_threshold_matches_neighbor(self):
+    def test_iris_threshold_legacy_fallback(self):
         assert ib.IRIS_DB == -20.0
         assert ib.iris_threshold(False) == -20.0
         assert abs(ib.iris_threshold(True) - (-20.0 * 1.3)) < 1e-9
+
+    def test_iris_loud_prefers_warn_over(self):
+        assert ib.iris_loud({"warn_over": True, "db": -90, "spl": 10}) is True
+        assert ib.iris_loud({"warn_over": False, "db": 0, "spl": 99}) is False
+
+    def test_iris_loud_falls_back_to_warn_thr_spl(self):
+        assert ib.iris_loud({"spl": 56.0, "warn_thr": 55}) is True
+        assert ib.iris_loud({"spl": 54.9, "warn_thr": 55}) is False
+
+    def test_iris_loud_legacy_dbfs(self):
+        assert ib.iris_loud({"db": -19.0, "quiet_log": False}) is True
+        assert ib.iris_loud({"db": -21.0, "quiet_log": False}) is False
+
+    def test_disco_url_defaults_localhost(self):
+        assert "127.0.0.1" in ib.DISCO_URL or "localhost" in ib.DISCO_URL
+        assert ":5007" in ib.DISCO_URL
 
 
 # ============================================================================
