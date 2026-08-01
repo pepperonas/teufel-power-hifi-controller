@@ -166,36 +166,18 @@ def try_open_serial():
     global ser
     port = find_port()
     try:
-        # DTR-Reset weckt den CDC nach Port-Close. Boot-Logs unter ser_lock lesen,
-        # damit der reader-Thread keine Zeilen (inkl. "ready") wegschnappt.
-        s = serial.Serial(port, BAUD, timeout=0.4, dsrdtr=True, rtscts=False)
+        # dsrdtr/rtscts False: kein DTR-Toggle → kein Arduino-Reset beim Open
+        # (sonst flackert die Matrix bei jedem USB-/Bridge-Reconnect).
+        s = serial.Serial(port, BAUD, timeout=1, dsrdtr=False, rtscts=False)
         try:
-            s.dtr = True
-            time.sleep(0.05)
             s.dtr = False
             s.rts = False
         except Exception:
             pass
-        ser = s  # reader may start seeing the port; lock serializes readline
-        saw_ready = False
-        deadline = time.monotonic() + 14.0
-        while time.monotonic() < deadline:
-            with ser_lock:
-                try:
-                    line = s.readline().decode(errors="replace").strip()
-                except Exception:
-                    line = ""
-            if not line:
-                continue
-            if line.lower() == "ready":
-                saw_ready = True
-                break
-        with ser_lock:
-            try:
-                s.reset_input_buffer()
-            except Exception:
-                pass
-        print("Serial offen: %s (ready=%s)" % (port, saw_ready), flush=True)
+        time.sleep(0.3)
+        s.reset_input_buffer()
+        ser = s
+        print("Serial offen:", port, flush=True)
         return True
     except Exception as e:
         ser = None
@@ -214,12 +196,13 @@ def serial_loop():
                 _last_value = None
                 _last_beats = None
                 _last_spectrum = None
-                for delay in (0.3, 1.5):
+                for delay in (0.5, 2.0, 5.0):
                     time.sleep(delay)
                     try:
                         push_matrix("m%d" % MODE_NUM[matrix_mode])
                         if matrix_mode == "clock":
                             push_matrix("v%d" % clock_value())
+                            _last_value = clock_value()
                     except Exception:
                         pass
             else:
@@ -265,8 +248,7 @@ def reader():
         if s is None:
             time.sleep(0.3); continue
         try:
-            with ser_lock:
-                line = s.readline().decode(errors="replace").strip()
+            line = s.readline().decode(errors="replace").strip()
         except Exception:
             time.sleep(0.2); continue
         if line and line[0] == "F" and len(line) >= 25:
