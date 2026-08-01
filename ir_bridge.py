@@ -166,15 +166,18 @@ def try_open_serial():
     global ser
     port = find_port()
     try:
-        # dsrdtr/rtscts False: kein DTR-Toggle → kein Arduino-Reset beim Open
-        # (sonst flackert die Matrix bei jedem USB-/Bridge-Reconnect).
-        s = serial.Serial(port, BAUD, timeout=1, dsrdtr=False, rtscts=False)
+        # Kurzer DTR-Puls weckt den R4-USB-CDC nach Port-Close (sonst totstumm,
+        # keine F-Frames / keine Matrix-Updates). Danach DTR/RTS aus, damit
+        # spätere Reconnects nicht unnötig neu booten.
+        s = serial.Serial(port, BAUD, timeout=1, dsrdtr=True, rtscts=False)
         try:
+            s.dtr = True
+            time.sleep(0.05)
             s.dtr = False
             s.rts = False
         except Exception:
             pass
-        time.sleep(0.3)            # kurz settle, ohne Reset-Wartezeit
+        time.sleep(2.0)            # R4 setup() inkl. WiFi-Begin
         s.reset_input_buffer()
         ser = s
         print("Serial offen:", port, flush=True)
