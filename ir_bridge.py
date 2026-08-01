@@ -166,10 +166,9 @@ def try_open_serial():
     global ser
     port = find_port()
     try:
-        # Kurzer DTR-Puls weckt den R4-USB-CDC nach Port-Close (sonst totstumm,
-        # keine F-Frames / keine Matrix-Updates). Danach DTR/RTS aus, damit
-        # spätere Reconnects nicht unnötig neu booten.
-        s = serial.Serial(port, BAUD, timeout=1, dsrdtr=True, rtscts=False)
+        # DTR-Reset: nach Port-Close ist der R4-USB-CDC oft totstumm. Reset + auf
+        # "ready" warten (setup inkl. WiFi kann >2 s dauern), sonst gehen m/v verloren.
+        s = serial.Serial(port, BAUD, timeout=0.4, dsrdtr=True, rtscts=False)
         try:
             s.dtr = True
             time.sleep(0.05)
@@ -177,10 +176,22 @@ def try_open_serial():
             s.rts = False
         except Exception:
             pass
-        time.sleep(2.0)            # R4 setup() inkl. WiFi-Begin
+        deadline = time.monotonic() + 14.0
+        saw_ready = False
+        while time.monotonic() < deadline:
+            try:
+                line = s.readline().decode(errors="replace").strip()
+            except Exception:
+                break
+            if not line:
+                continue
+            if line.lower() == "ready" or line.startswith("BOOT"):
+                if line.lower() == "ready":
+                    saw_ready = True
+                    break
         s.reset_input_buffer()
         ser = s
-        print("Serial offen:", port, flush=True)
+        print("Serial offen: %s (ready=%s)" % (port, saw_ready), flush=True)
         return True
     except Exception as e:
         ser = None
@@ -203,6 +214,8 @@ def serial_loop():
                     time.sleep(delay)
                     try:
                         push_matrix("m%d" % MODE_NUM[matrix_mode])
+                        if matrix_mode == "clock":
+                            push_matrix("v%d" % clock_value())
                     except Exception:
                         pass
             else:
