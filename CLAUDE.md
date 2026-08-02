@@ -92,6 +92,10 @@ All IR codes are defined in `arduino/teufel-power-hifi-ir-mapping.csv`:
 | Treble Up/Down | 0xB8/0x43 | CMD_TREBLE_UP/DOWN | POST /api/eq |
 | AUX/Line/Optical/USB | 0x44/0x45/0x3F/0xDF | CMD_AUX/LINE/OPT/USB | POST /api/input |
 
+> **Mute (`0x28`) mutes nothing.** Power and volume work, so the IR path is fine and the NEC address 0x5780 is right — the byte is simply mislabelled in the original capture. Unresolved; the remaining candidates are the 22 unused values whose low three bits are zero (every confirmed code is in that family).
+>
+> **Extra Bass is `Auto`/`Off`, not `On`/`Off`** (Yamaha side, see yahama-controller). The RX-V577 answers `On` with `RC=3`, and a rejected command still returns HTTP 200 — check the return code or the UI will report success.
+
 ## API Endpoints
 
 See `docs/API.md` for complete reference. Key endpoints:
@@ -227,6 +231,16 @@ Shared firmware lives in gartenklima/raumklima `arduino/r4-firmware/` (not this 
 | (both) | `vHHMMSS` | Packed local time from `ir_bridge.clock_value()` ~4×/s |
 
 Serial: plain ACM open + `m0` probe; **avoid** 1200-baud touch and `stty` ExecStartPre on `/dev/ttyACM0` (wedges USB-CDC). Drop-in on raspi5: `/etc/systemd/system/teufel-ir-bridge.service.d/no-stty.conf`.
+
+## R4 wedges — and how the bridge gets out of it
+
+raspi5 browns out constantly (hundreds of `Undervoltage detected` per day), and a glitched USB link leaves the R4 **accepting writes while it stops answering anything**. From the Pi that is indistinguishable from healthy hardware: the port is open, writes succeed, and matrix updates plus IR codes vanish into the void while every layer above reports success. A service restart does not help — the wedge sits in the device, not in the handle. Only re-enumeration clears it.
+
+- `liveness_watchdog` checks every 5 s how long ago *any* line arrived. After `RX_STALE_S` (25 s) of silence it first nudges the board (a mode command, which the firmware always answers with `M<n>` — necessary because in mode `off` the R4 streams nothing on its own) and only then calls `usb_reset_r4()`.
+- `try_open_serial` also resets when `open()` itself fails with EIO, otherwise the bridge retries a dead node forever.
+- The reset needs write access to the bus node and the service runs as `pi`, hence `system/99-arduino-r4-usbreset.rules` (`MODE=0660`, `GROUP=plugdev`). Install with `sudo cp system/*.rules /etc/udev/rules.d/ && sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=usb --action=change`.
+
+**Do not add a per-command acknowledgement.** It was tried: the firmware echoes `TX 0x<hex>` after `IrSender` emits, but in the streaming matrix modes the R4 floods the port with frames, the reader falls behind the ack window, and *every working button* gets reported as broken. Freshness of any line is the robust signal; a reply to one specific command is not.
 
 ## Contributing
 

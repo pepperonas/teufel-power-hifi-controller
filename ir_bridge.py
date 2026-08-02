@@ -18,7 +18,7 @@ TCP 127.0.0.1:8799 (eine Zeile):
 Serielles Protokoll zum Arduino: IR=<HEX>, Matrix-Modus=m<n>, Wert=v<int> (clock/analog: vHHMMSS).
 """
 import serial, socket, threading, time, glob, os, json, urllib.request
-import math
+import fcntl, math, re, subprocess
 
 BAUD = 115200
 HOST, TCP_PORT = "127.0.0.1", 8799
@@ -69,6 +69,12 @@ iris_enabled = False       # Overlay: show "IRIS" while disco warn_over (shared 
 _iris_showing = False      # currently displaying firmware mode 11
 latest_frame = ""          # last 12x8 frame streamed by the R4 ('F'+24 hex), for the 1:1 viewer
 _serial_booted = False     # True after open settled — reader may consume lines
+# Liveness. A per-command "TX 0x<hex>" acknowledgement was tried here and had
+# to go: in the streaming matrix modes the R4 floods the port with frames, the
+# reader falls behind the ack window, and every working button gets reported as
+# broken. Freshness of *any* line is the robust signal — see liveness_watchdog.
+_last_rx = 0.0             # monotonic time of the last line received from the R4
+RX_STALE_S = 25.0          # silence this long → probe, then re-enumerate
 _last_value = None
 _last_beats = None
 IDLE_LEVEL = 0.03          # Pegel darunter = Stille -> Matrix zeigt "--"
@@ -210,7 +216,50 @@ def find_port():
     cands = sorted(glob.glob("/dev/ttyACM*")) + sorted(glob.glob("/dev/ttyUSB*"))
     return cands[0] if cands else "/dev/ttyACM0"
 
-def try_open_serial():
+R4_USB_ID = "2341:1002"                    # Arduino UNO R4 WiFi
+_USBDEVFS_RESET = (ord("U") << 8) | 20
+
+
+def usb_reset_r4():
+    """Re-enumerate the R4 over USB — the only remote way back from a wedged CDC.
+
+    This host browns out constantly (hundreds of `Undervoltage detected` per
+    day), and a glitched USB link leaves the board still accepting writes while
+    it stops answering anything. From the Pi that is indistinguishable from
+    healthy hardware: matrix updates and IR codes go into the void and every
+    layer above reports success. Only re-enumeration brings it back; a service
+    restart does not, because the wedge sits in the device, not in the handle.
+
+    Needs write access to the bus node — see
+    /etc/udev/rules.d/99-arduino-r4-usbreset.rules (MODE 0660, GROUP plugdev).
+    """
+    try:
+        out = subprocess.check_output(["lsusb"], text=True, timeout=5)
+    except Exception as e:
+        print("USB-Reset: lsusb nicht nutzbar:", e, flush=True)
+        return False
+    m = re.search(r"Bus (\d+) Device (\d+): ID " + re.escape(R4_USB_ID), out)
+    if not m:
+        print("USB-Reset: R4 %s nicht am Bus" % R4_USB_ID, flush=True)
+        return False
+    path = "/dev/bus/usb/%s/%s" % (m.group(1), m.group(2))
+    try:
+        fd = os.open(path, os.O_WRONLY)
+    except OSError as e:
+        print("USB-Reset: %s nicht schreibbar (udev-Regel fehlt?): %s" % (path, e), flush=True)
+        return False
+    try:
+        fcntl.ioctl(fd, _USBDEVFS_RESET, 0)
+        print("USB-Reset auf %s abgesetzt" % path, flush=True)
+        return True
+    except OSError as e:
+        print("USB-Reset fehlgeschlagen:", e, flush=True)
+        return False
+    finally:
+        os.close(fd)
+
+
+def try_open_serial(allow_reset=True):
     """Ein einzelner Verbindungsversuch zum R4. Setzt `ser` bei Erfolg, sonst None."""
     global ser, _serial_booted, latest_frame
     port = find_port()
@@ -243,14 +292,37 @@ def try_open_serial():
                 if line[0] == "F" and len(line) >= 25:
                     latest_frame = line[1:25]
                 break
+        if not saw and allow_reset:
+            # Writes land but nothing ever comes back — a wedged CDC, not a
+            # stale handle. Re-enumerate and retry once; otherwise the board
+            # stays a black hole until someone unplugs it.
+            print("R4 antwortet nicht auf die m0-Probe — versuche USB-Reset", flush=True)
+            try:
+                s.close()
+            except Exception:
+                pass
+            ser = None
+            _serial_booted = False
+            if usb_reset_r4():
+                time.sleep(5.0)
+                return try_open_serial(allow_reset=False)
+            return False
         ser = s
         _serial_booted = True
+        globals()["_last_rx"] = time.monotonic()   # arm the watchdog from now
         print("Serial offen: %s (ready=%s)" % (port, saw), flush=True)
         return True
     except Exception as e:
         print("Serial-Open-Fehler:", e, flush=True)
         ser = None
         _serial_booted = False
+        if allow_reset:
+            # The CDC can break hard enough that open() itself fails with EIO.
+            # Nothing short of re-enumeration clears that, and without it the
+            # bridge would retry a dead node forever.
+            if usb_reset_r4():
+                time.sleep(5.0)
+                return try_open_serial(allow_reset=False)
         return False
 
 def serial_loop():
@@ -296,10 +368,14 @@ def _write_line(line):
         raise
 
 def send_code(code, repeats):
+    """Emit an IR code. Fire-and-forget: the firmware echoes `TX 0x<hex>`, but
+    waiting for it here is not viable while the matrix stream saturates the
+    port. liveness_watchdog covers the case the ack was meant to catch."""
     with ser_lock:
         for _ in range(max(1, repeats)):
             _write_line("%02X" % code)
             time.sleep(0.06)
+
 
 def push_matrix(line):
     """Matrix-Daten an den R4 (fire-and-forget; ohne R4 still übersprungen)."""
@@ -313,7 +389,7 @@ def reader():
     """Continuously read serial and cache the R4's streamed frames ('F'+24 hex).
     Other lines (command echoes) are ignored. Read + write run on separate
     threads, which pyserial supports; on reconnect the global `ser` is re-fetched."""
-    global latest_frame
+    global latest_frame, _last_rx
     while True:
         s = ser
         if s is None or not _serial_booted:
@@ -322,6 +398,8 @@ def reader():
             line = s.readline().decode(errors="replace").strip()
         except Exception:
             time.sleep(0.2); continue
+        if line:
+            _last_rx = time.monotonic()
         if line and line[0] == "F" and len(line) >= 25:
             latest_frame = line[1:25]
 
@@ -591,6 +669,45 @@ def handle(conn):
     finally:
         conn.close()
 
+def liveness_watchdog():
+    """Re-enumerate the R4 when it stops talking.
+
+    The board can wedge while the port stays open and writes keep succeeding, so
+    nothing upstream notices: matrix updates and IR codes vanish into the void
+    and every layer still reports success. This host browns out constantly
+    (hundreds of `Undervoltage detected` a day), which makes that a recurring
+    event, so it has to heal without someone unplugging a cable.
+    """
+    global ser, _serial_booted
+    while True:
+        time.sleep(5.0)
+        if ser is None or not _serial_booted:
+            continue                       # serial_loop owns (re)connects
+        if time.monotonic() - _last_rx < RX_STALE_S:
+            continue
+        # Nudge before judging: in "off" the R4 streams nothing by itself, but
+        # it always answers a mode command with "M<n>".
+        try:
+            with ser_lock:
+                _write_line("m%d" % MODE_NUM.get(matrix_mode, 0))
+        except Exception:
+            continue                       # write failed → serial_loop reopens
+        time.sleep(3.0)
+        quiet = time.monotonic() - _last_rx
+        if quiet < RX_STALE_S:
+            continue
+        print("R4 seit %.0fs stumm — USB-Reset" % quiet, flush=True)
+        if usb_reset_r4():
+            with ser_lock:
+                try:
+                    if ser:
+                        ser.close()
+                except Exception:
+                    pass
+                ser = None
+                _serial_booted = False     # serial_loop picks it up again
+
+
 def main():
     load_mode()
     load_iris()
@@ -604,6 +721,7 @@ def main():
     threading.Thread(target=serial_loop, daemon=True).start()
     threading.Thread(target=reader, daemon=True).start()   # cache streamed R4 frames
     threading.Thread(target=poller, daemon=True).start()
+    threading.Thread(target=liveness_watchdog, daemon=True).start()
     while True:
         conn, _ = srv.accept()
         threading.Thread(target=handle, args=(conn,), daemon=True).start()

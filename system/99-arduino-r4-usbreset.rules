@@ -1,0 +1,6 @@
+# Arduino UNO R4 WiFi (Teufel IR + LED matrix). Chronic undervoltage on this
+# host wedges the board's USB-CDC: it keeps accepting writes but stops
+# answering, which is indistinguishable from healthy hardware. teufel-ir-bridge
+# recovers by re-enumerating the device (USBDEVFS_RESET), and it runs as `pi`,
+# so the bus node has to be writable by plugdev.
+SUBSYSTEM=="usb", ATTR{idVendor}=="2341", ATTR{idProduct}=="1002", MODE="0660", GROUP="plugdev"
