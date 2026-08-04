@@ -107,6 +107,7 @@
 
     <!-- Favicon & App Icons -->
 <!-- PWA Manifest -->
+    <script>(function(){try{var t=localStorage.getItem('sh-theme')||localStorage.getItem('dash-theme')||localStorage.getItem('theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
     <link rel="manifest" href="manifest.json">
     
     <!-- Microsoft Tiles -->
@@ -179,7 +180,9 @@
            `.header` ein blankes `header` schlägt. */
         .header {
             background-color: transparent;
-            padding: var(--sh-pad-top) 0 var(--sh-gap-lg);
+            /* Kein zweites Oberpolster: die 20 px zum Leistenrand kommen bereits
+               vom body — so macht es der Massstab. Beides zusammen ergab 40. */
+            padding: 0 0 var(--sh-gap-lg);
             box-shadow: none;
             position: static;
             max-width: var(--sh-measure);
@@ -946,9 +949,17 @@ html.theme-anim::view-transition-new(root){
   .card > *, .md-confirm::before, .md-shake, #mute-toggle.is-muted,
   .nudge-up, .nudge-down, .nudge-left, .nudge-right, .power-button.on::after{ animation:none!important; }
 }
-    </style>
-    <script src="/shared/icons.js?v=1" defer></script>
-    <script src="/shared/nav.js?v=7" defer></script>
+    
+        /* Icons aus dem geteilten Set statt Emoji: gleiche Zeichnung wie in
+           Leiste und Dashboard, eine Farbe (currentColor) statt der festen
+           Eigenfarbe eines Emoji, und plattformunabhaengig gleich. */
+        .sh-i{display:inline-flex;align-items:center;justify-content:center;line-height:0}
+        .sh-i svg{width:1em;height:1em;display:block}
+        h1 .sh-i,h2 .sh-i,h3 .sh-i{margin-right:.4rem;vertical-align:-.1em}
+        .btn .sh-i svg{width:1.35em;height:1.35em}
+</style>
+    <script src="/shared/icons.js?v=4" defer></script>
+    <script src="/shared/nav.js?v=9" defer></script>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
 </head>
@@ -961,11 +972,9 @@ html.theme-anim::view-transition-new(root){
              Zustaenden, und das ist ein Knopf. -->
         <div class="head-row">
             <div>
-                <h1>🔊 Teufel Power HiFi Controller</h1>
+                <h1><span class="sh-i" data-sh-icon="speaker" aria-hidden="true"></span>Teufel Power HiFi Controller</h1>
                 <div class="sub">IR-Fernbedienung via Raspberry Pi</div>
             </div>
-            <button type="button" class="sh-theme-btn" id="theme-toggle"
-                    aria-label="Helles oder dunkles Design">🌙</button>
         </div>
     </header>
 
@@ -990,7 +999,7 @@ html.theme-anim::view-transition-new(root){
             <h2>Lautstärke</h2>
             <div class="grid grid-3 volume-controls" style="gap: var(--spacing-4); align-items: stretch;">
                 <button class="btn btn-secondary btn-lg" id="mute-toggle">
-                    <span style="font-size: 1.5rem;">🔇</span>
+                    <span class="sh-i" data-sh-icon="mute" aria-hidden="true"></span>
                     <span>Stumm</span>
                 </button>
                 <button class="btn btn-lg" id="vol-down">
@@ -1009,7 +1018,7 @@ html.theme-anim::view-transition-new(root){
             <h2>Equalizer</h2>
             <div class="grid grid-3" style="gap: var(--spacing-4); align-items: stretch;">
                 <div style="text-align: center;">
-                    <h3 style="margin-bottom: var(--spacing-3); text-align: center;">🎵 Bass</h3>
+                    <h3 style="margin-bottom: var(--spacing-3); text-align: center;"><span class="sh-i" data-sh-icon="bass" aria-hidden="true"></span>Bass</h3>
                     <div style="display: flex; flex-direction: column; gap: var(--spacing-2); height: 140px; justify-content: space-between;">
                         <button class="btn" data-eq="bass" data-action="up" style="min-height: 60px;">
                             <span style="font-size: 1.5rem;">+</span>
@@ -1020,7 +1029,7 @@ html.theme-anim::view-transition-new(root){
                     </div>
                 </div>
                 <div style="text-align: center;">
-                    <h3 style="margin-bottom: var(--spacing-3); text-align: center;">🎶 Mitten</h3>
+                    <h3 style="margin-bottom: var(--spacing-3); text-align: center;"><span class="sh-i" data-sh-icon="wave" aria-hidden="true"></span>Mitten</h3>
                     <div style="display: flex; flex-direction: column; gap: var(--spacing-2); height: 140px; justify-content: space-between;">
                         <button class="btn" data-eq="mid" data-action="up" style="min-height: 60px;">
                             <span style="font-size: 1.5rem;">+</span>
@@ -1031,7 +1040,7 @@ html.theme-anim::view-transition-new(root){
                     </div>
                 </div>
                 <div style="text-align: center;">
-                    <h3 style="margin-bottom: var(--spacing-3); text-align: center;">🎼 Höhen</h3>
+                    <h3 style="margin-bottom: var(--spacing-3); text-align: center;"><span class="sh-i" data-sh-icon="note" aria-hidden="true"></span>Höhen</h3>
                     <div style="display: flex; flex-direction: column; gap: var(--spacing-2); height: 140px; justify-content: space-between;">
                         <button class="btn" data-eq="treble" data-action="up" style="min-height: 60px;">
                             <span style="font-size: 1.5rem;">+</span>
@@ -1049,25 +1058,25 @@ html.theme-anim::view-transition-new(root){
             <h2>Eingänge</h2>
             <div class="grid grid-2" style="gap: var(--spacing-3); align-items: stretch; margin-bottom: var(--spacing-3);">
                 <button class="btn btn-primary btn-lg" data-input="AUX">
-                    <span style="font-size: 1.5rem;">🎧</span>
+                    <span class="sh-i" data-sh-icon="headphones" aria-hidden="true"></span>
                     <span>AUX</span>
                 </button>
                 <button class="btn btn-primary btn-lg" data-input="BLUETOOTH">
-                    <span style="font-size: 1.5rem;">🔵</span>
+                    <span class="sh-i" data-sh-icon="antenna" aria-hidden="true"></span>
                     <span>Bluetooth</span>
                 </button>
             </div>
             <div class="grid grid-3" style="gap: var(--spacing-3); align-items: stretch;">
                 <button class="btn btn-primary btn-lg" data-input="LINE">
-                    <span style="font-size: 1.5rem;">📻</span>
+                    <span class="sh-i" data-sh-icon="radio" aria-hidden="true"></span>
                     <span>Line</span>
                 </button>
                 <button class="btn btn-primary btn-lg" data-input="OPTICAL">
-                    <span style="font-size: 1.5rem;">💿</span>
+                    <span class="sh-i" data-sh-icon="disc" aria-hidden="true"></span>
                     <span>Optical</span>
                 </button>
                 <button class="btn btn-primary btn-lg" data-input="USB">
-                    <span style="font-size: 1.5rem;">💾</span>
+                    <span class="sh-i" data-sh-icon="save" aria-hidden="true"></span>
                     <span>USB</span>
                 </button>
             </div>
@@ -1078,7 +1087,7 @@ html.theme-anim::view-transition-new(root){
             <h2>Balance & Navigation</h2>
             <div class="grid grid-2" style="gap: var(--spacing-4);">
                 <div style="text-align: center;">
-                    <h3 style="margin-bottom: var(--spacing-3);">🔊 Balance</h3>
+                    <h3 style="margin-bottom: var(--spacing-3);"><span class="sh-i" data-sh-icon="balance" aria-hidden="true"></span>Balance</h3>
                     <div style="display: flex; gap: var(--spacing-2);">
                         <button class="btn btn-primary" data-balance="left">
                             <span style="font-size: 1.2rem;">←</span>
@@ -1091,7 +1100,7 @@ html.theme-anim::view-transition-new(root){
                     </div>
                 </div>
                 <div style="text-align: center;">
-                    <h3 style="margin-bottom: var(--spacing-3);">🎛️ Navigation</h3>
+                    <h3 style="margin-bottom: var(--spacing-3);"><span class="sh-i" data-sh-icon="sliders" aria-hidden="true"></span>Navigation</h3>
                     <div style="display: flex; gap: var(--spacing-2);">
                         <button class="btn btn-primary" data-nav="left">
                             <span style="font-size: 1.2rem;">←</span>
@@ -1109,12 +1118,18 @@ html.theme-anim::view-transition-new(root){
 
     <!-- Footer -->
     <footer style="text-align: center; padding: var(--spacing-8) var(--spacing-4) var(--spacing-6); color: var(--text-secondary); border-top: 1px solid rgba(255, 255, 255, 0.1); margin-top: var(--spacing-8);">
-        <p style="font-size: 0.9rem;">Made with ❤️ by Martin Pfeffer</p>
+        <p style="font-size: 0.9rem;">Made with <span class="sh-i" data-sh-icon="heart" aria-hidden="true"></span> by Martin Pfeffer</p>
     </footer>
 
     <div class="message" id="message"></div>
 
     <script>
+        /* SHIcons.hydrate() laeuft einmal beim Laden; alles, was danach ins
+           DOM kommt, muss sein SVG selbst mitbringen. */
+        function shSvg(key){
+            return (window.SHIcons && SHIcons.svg) ? (SHIcons.svg(key) || '') : '';
+        }
+
         class TeufelController {
             constructor() {
                 this.initializeElements();
@@ -1157,8 +1172,7 @@ html.theme-anim::view-transition-new(root){
                     eqBtns: document.querySelectorAll('[data-eq]'),
                     balanceBtns: document.querySelectorAll('[data-balance]'),
                     navBtns: document.querySelectorAll('[data-nav]'),
-                    message: document.getElementById('message'),
-                    themeToggle: document.getElementById('theme-toggle')
+                    message: document.getElementById('message')
                 };
             }
 
@@ -1205,14 +1219,13 @@ html.theme-anim::view-transition-new(root){
                 });
 
                 // Theme toggle
-                this.elements.themeToggle.addEventListener('click', () => this.toggleTheme());
             }
 
             handleVolumeUp() {
                 // Check if cooldown is active
                 if (this.cooldownActive) {
                     const remainingTime = Math.ceil((this.cooldownEndTime - Date.now()) / 1000);
-                    this.showMessage(`🕐 Cooldown aktiv! Noch ${remainingTime}s warten...`, 'info');
+                    this.showMessage(`Cooldown aktiv! Noch ${remainingTime}s warten...`, 'info');
                     return;
                 }
 
@@ -1243,7 +1256,7 @@ html.theme-anim::view-transition-new(root){
                 this.elements.volUpBtn.style.opacity = '0.5';
 
                 // Show funny warning message
-                this.showMessage('🎵 Cooldown aktiviert! Wir wollen es nicht übertreiben! 😄', 'warning');
+                this.showMessage('Cooldown aktiviert! Wir wollen es nicht übertreiben!', 'warning');
 
                 // Start countdown timer
                 this.updateCooldownTimer();
@@ -1255,7 +1268,7 @@ html.theme-anim::view-transition-new(root){
                     this.elements.volUpBtn.disabled = false;
                     this.elements.volUpBtn.style.opacity = '1';
                     this.elements.volUpBtn.innerHTML = '<span style="font-size: 2rem;">+</span><span>Lauter</span>';
-                    this.showMessage('✅ Lautstärke wieder verfügbar!', 'success');
+                    this.showMessage('Lautstärke wieder verfügbar!', 'success');
                 }, this.cooldownDuration);
             }
 
@@ -1265,7 +1278,7 @@ html.theme-anim::view-transition-new(root){
                 const remainingTime = Math.ceil((this.cooldownEndTime - Date.now()) / 1000);
                 if (remainingTime > 0) {
                     // Update button text with countdown
-                    this.elements.volUpBtn.innerHTML = `<span style="font-size: 1.5rem;">⏳</span><span>Warten... ${remainingTime}s</span>`;
+                    this.elements.volUpBtn.innerHTML = `<span class="sh-i">${shSvg('clock')}</span><span>Warten... ${remainingTime}s</span>`;
                     
                     setTimeout(() => this.updateCooldownTimer(), 1000);
                 }
@@ -1308,10 +1321,10 @@ html.theme-anim::view-transition-new(root){
                     if (typeof result.muted === 'boolean') {
                         const m = this.elements.muteToggle;
                         m.classList.toggle('is-muted', result.muted);
-                        // Icon + Label spiegeln den Zustand klar: 🔊 Ton an  vs.  🔇 GEMUTET
+                        // Icon + Label spiegeln den Zustand: Ton an vs. Gemutet
                         m.innerHTML = result.muted
-                            ? '<span style="font-size:1.5rem;">🔇</span><span>Gemutet</span>'
-                            : '<span style="font-size:1.5rem;">🔊</span><span>Ton an</span>';
+                            ? '<span class="sh-i">' + shSvg('mute') + '</span><span>Gemutet</span>'
+                            : '<span class="sh-i">' + shSvg('speaker') + '</span><span>Ton an</span>';
                     }
                 } catch (_) {}
             }
@@ -1331,26 +1344,26 @@ html.theme-anim::view-transition-new(root){
                 
                 switch (endpoint) {
                     case 'power':
-                        message = '⚡ Power-Signal gesendet';
+                        message = 'Power-Signal gesendet';
                         break;
                     case 'volume':
-                        message = data.action === 'up' ? '🔊 Lautstärke +' : '🔉 Lautstärke −';
+                        message = data.action === 'up' ? 'Lautstärke +' : 'Lautstärke −';
                         break;
                     case 'mute':
-                        message = '🔇 Stumm-Signal gesendet';
+                        message = 'Stumm-Signal gesendet';
                         break;
                     case 'input':
-                        message = `📡 ${data.input} ausgewählt`;
+                        message = `${data.input} ausgewählt`;
                         break;
                     case 'eq':
                         const eqName = data.type === 'bass' ? 'Bass' : data.type === 'mid' ? 'Mitten' : 'Höhen';
-                        message = `🎚️ ${eqName} ${data.action === 'up' ? '+' : '−'}`;
+                        message = `️ ${eqName} ${data.action === 'up' ? '+' : '−'}`;
                         break;
                     case 'balance':
-                        message = `⚖️ Balance ${data.direction === 'left' ? '←' : '→'}`;
+                        message = `Balance ${data.direction === 'left' ? '←' : '→'}`;
                         break;
                     case 'navigation':
-                        message = `🎛️ Navigation ${data.direction === 'left' ? '←' : '→'}`;
+                        message = `Navigation ${data.direction === 'left' ? '←' : '→'}`;
                         break;
                 }
                 
@@ -1367,54 +1380,16 @@ html.theme-anim::view-transition-new(root){
             }
 
             initializeTheme() {
-                // Load saved theme or default to dark
-                const savedTheme = localStorage.getItem('theme') || 'dark';
-                this.setTheme(savedTheme);
-            }
-
-            toggleTheme() {
-                const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
-                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-                const apply = () => this.setTheme(newTheme);
-
-                const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-                // MD3 Expressive circular reveal blooming from the toggle (View Transitions API).
-                if (!document.startViewTransition || reduce) { apply(); return; }
-
-                const el = this.elements.themeToggle;
-                const r = el.getBoundingClientRect();
-                const x = r.left + r.width / 2;
-                const y = r.top + r.height / 2;
-                const end = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
-                const root = document.documentElement;
-                root.style.setProperty('--r-x', x + 'px');
-                root.style.setProperty('--r-y', y + 'px');
-                root.style.setProperty('--r-end', end + 'px');
-                root.classList.add('theme-anim');
-                const t = document.startViewTransition(apply);
-                t.finished.finally(() => root.classList.remove('theme-anim'));
-            }
-
-            setTheme(theme) {
-                document.documentElement.setAttribute('data-theme', theme);
-                localStorage.setItem('theme', theme);
-                
-                // Update toggle switch
-                if (theme === 'light') {
-                    this.elements.themeToggle.classList.add('active');
-                } else {
-                    this.elements.themeToggle.classList.remove('active');
-                }
-
-                // Update meta theme-color
-                const metaThemeColor = document.querySelector('meta[name="theme-color"]');
-                if (metaThemeColor) {
-                    metaThemeColor.setAttribute('content', theme === 'light' ? '#f8fafc' : '#2B2E3B');
-                }
-
-                // Show theme change message
-                const themeMessage = theme === 'light' ? '☀️ Helles Theme aktiviert' : '🌙 Dunkles Theme aktiviert';
-                this.showMessage(themeMessage, 'info');
+                // Umschalten, Speichern und der Kreis-Reveal liegen in
+                // shared/nav.js — eine Implementierung fuer alle Apps. Hier
+                // bleibt nur, was nur diese Seite weiss: die Farbe der
+                // Browser-Leiste. <meta> loest kein var() auf, also ein Literal.
+                const sync = t => {
+                    const m = document.querySelector('meta[name="theme-color"]');
+                    if (m) m.setAttribute('content', t === 'light' ? '#f8fafc' : '#2B2E3B');
+                };
+                window.addEventListener('sh-theme', e => sync(e.detail.theme));
+                sync(document.documentElement.getAttribute('data-theme'));
             }
         }
 
