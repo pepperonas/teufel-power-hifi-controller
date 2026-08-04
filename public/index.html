@@ -114,23 +114,26 @@
     <meta name="msapplication-TileImage" content="/android-chrome-192x192.png">
     <meta name="msapplication-config" content="/browserconfig.xml">
 
-    <style>
+    <link rel="stylesheet" href="/shared/theme.css">
+<style>
+        /* Diese App trug noch das ältere Blaugrau-Schema (#2B2E3B/#688db1) und
+           lag damit weiter von der Referenz entfernt als die übrigen. Die
+           Verkettung an shared/theme.css holt sie in einem Zug auf Linie. */
         :root {
-            /* Dark Theme (Standard) */
-            --background-dark: #2B2E3B;
-            --background-darker: #252830;
-            --card-background: #343845;
-            --accent-blue: #688db1;
-            --accent-green: #9cb68f;
-            --accent-red: #e16162;
+            --background-dark: var(--sh-bg);
+            --background-darker: var(--sh-bg2);
+            --card-background: var(--sh-surface);
+            --accent-blue: var(--sh-primary);
+            --accent-green: var(--sh-ok);
+            --accent-red: var(--sh-loud);
             --accent-orange: #e4a853;
-            --text-primary: #d1d5db;
-            --text-secondary: #9ca3af;
+            --text-primary: var(--sh-text);
+            --text-secondary: var(--sh-text2);
 
-            /* Schatten */
-            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.25);
-            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.15);
-            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15);
+            /* Stillgelegt: Höhe entsteht über Kontur und Flächenton. */
+            --shadow-sm: none;
+            --shadow: none;
+            --shadow-lg: none;
 
             /* Abstände */
             --spacing-1: 0.25rem;
@@ -143,30 +146,19 @@
             --spacing-16: 4rem;
 
             /* Rundungen */
-            --radius-sm: 0.25rem;
-            --radius: 0.5rem;
-            --radius-lg: 0.75rem;
-            --radius-xl: 1rem;
+            --radius-sm: var(--sh-radius-sm);
+            --radius: var(--sh-radius);
+            --radius-lg: var(--sh-radius);
+            --radius-xl: var(--sh-radius);
 
             /* Typografie */
-            --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+            --font-family: var(--sh-font);
         }
 
         /* Light Theme */
-        [data-theme="light"] {
-            --background-dark: #f8fafc;
-            --background-darker: #f1f5f9;
-            --card-background: #ffffff;
-            --accent-blue: #3b82f6;
-            --accent-green: #22c55e;
-            --accent-red: #ef4444;
-            --accent-orange: #f59e0b;
-            --text-primary: #1e293b;
-            --text-secondary: #64748b;
-            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        }
+        /* Der eigene Hell-Block ist entfallen: shared/theme.css kippt die
+           --sh-*-Tokens unter [data-theme="light"], und da die Tokens dieser
+           App darauf zeigen, kippt sie automatisch mit. */
 
         * {
             margin: 0;
@@ -174,35 +166,37 @@
             box-sizing: border-box;
         }
 
+        /* Grund, Schrift, Polster und Zeilenhöhe kommen aus shared/theme.css. */
         body {
-            font-family: var(--font-family);
-            background-color: var(--background-dark);
             color: var(--text-primary);
-            min-height: 100vh;
-            line-height: 1.6;
         }
 
+        /* Kopf ohne Platte, auf der Inhaltsspalte. Klassenebene, weil
+           `.header` ein blankes `header` schlägt. */
         .header {
-            background-color: var(--background-darker);
-            padding: var(--spacing-6);
-            box-shadow: var(--shadow);
-            position: sticky;
-            top: 0;
-            z-index: 100;
+            background-color: transparent;
+            padding: var(--sh-pad-top) 0 var(--sh-gap-lg);
+            box-shadow: none;
+            position: static;
+            max-width: var(--sh-measure);
+            margin: 0 auto;
         }
 
         .header h1 {
-            font-size: 1.875rem;
-            font-weight: 700;
-            text-align: center;
+            font-size: clamp(1.85rem, 5vw, 2.55rem);
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1.05;
+            text-align: left;
             color: var(--text-primary);
-            margin-bottom: var(--spacing-2);
+            margin-bottom: 0;
         }
 
+        /* 1200 px OHNE eigenes Polster — sonst bleiben 1152 px Inhalt. */
         .container {
-            max-width: 1200px;
+            max-width: var(--sh-measure);
             margin: 0 auto;
-            padding: var(--spacing-6);
+            padding: 0 0 var(--sh-pad-bottom);
         }
 
         .card {
@@ -214,9 +208,6 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        [data-theme="light"] .card {
-            border: 1px solid rgba(0, 0, 0, 0.1);
-        }
 
         .card h2 {
             font-size: 1.5rem;
@@ -558,9 +549,6 @@
             border: 2px solid rgba(255, 255, 255, 0.2);
         }
 
-        [data-theme="light"] .toggle-switch {
-            border: 2px solid rgba(0, 0, 0, 0.2);
-        }
 
         .toggle-switch.active {
             background: var(--accent-blue);
@@ -649,22 +637,25 @@
            Konsistent mit den übrigen Smart-Home-UIs (md3-expressive.css).
            ===================================================================== */
         :root {
-            --md-primary: #aac7ff;
-            --md-on-primary: #08305f;
-            --md-outline-variant: #44474e;
+            --md-primary: var(--sh-primary);
+            --md-on-primary: var(--sh-on-primary);
+            --md-outline-variant: var(--sh-outline);
 
-            /* App-Tokens → MD3 dunkle Tonal-Surfaces + vibrante Akzente */
-            --background-dark: #111318;
-            --background-darker: #191c20;
-            --card-background: #1d2024;
-            --accent-blue: #aac7ff;
-            --accent-green: #7fd79b;
-            --accent-red: #ffb4ab;
+            /* ⚠️ Zweiter, SPÄTERER Token-Block aus dem MD3-Sweep 2026-06-16 — er
+               gewinnt gegen den ersten oben. Wer nur den ersten verkettet, sieht
+               keine Wirkung und sucht am falschen Ort. Auch dieser zeigt jetzt
+               auf shared/theme.css. */
+            --background-dark: var(--sh-bg);
+            --background-darker: var(--sh-bg2);
+            --card-background: var(--sh-surface);
+            --accent-blue: var(--sh-primary);
+            --accent-green: var(--sh-ok);
+            --accent-red: var(--sh-loud);
             --accent-orange: #f5c777;
-            --text-primary: #e2e2e9;
-            --text-secondary: #c4c6d0;
+            --text-primary: var(--sh-text);
+            --text-secondary: var(--sh-text2);
             /* On-Farben für gefüllte Akzent-Buttons (dunkler Text auf hellem Ton) */
-            --on-blue: #08305f;
+            --on-blue: var(--sh-on-primary);
             --on-green: #00391f;
             --on-red: #690005;
             --on-orange: #412d00;
@@ -700,10 +691,13 @@
         }
 
         /* ---- Surfaces ---- */
+        /* Diese spätere Regel hielt die Platte am Leben: eigener Flächenton,
+           abgerundete Unterkante und ein hart verdrahteter Schatten, der an den
+           Token-Änderungen oben vorbeilief. */
         .header {
-            background: var(--card-background);
-            border-radius: 0 0 var(--radius-xl) var(--radius-xl);
-            box-shadow: 0 2px 14px rgba(0,0,0,.30);
+            background: transparent;
+            border-radius: 0;
+            box-shadow: none;
         }
         .header h1 { font-weight: 800; letter-spacing: -.02em; }
         .card {
