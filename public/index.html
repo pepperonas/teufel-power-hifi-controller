@@ -207,8 +207,8 @@
         .card {
             background-color: var(--card-background);
             border-radius: var(--radius-xl);
-            padding: var(--spacing-6);
-            margin-bottom: var(--spacing-6);
+            padding: var(--sh-card-pad);
+            margin-bottom: var(--sh-gap-lg);
             box-shadow: var(--shadow);
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
@@ -665,20 +665,22 @@
             --accent-blue: var(--sh-primary);
             --accent-green: var(--sh-ok);
             --accent-red: var(--sh-loud);
-            --accent-orange: #f5c777;
+            --accent-orange: var(--sh-warn);
             --text-primary: var(--sh-text);
             --text-secondary: var(--sh-text2);
             /* On-Farben für gefüllte Akzent-Buttons (dunkler Text auf hellem Ton) */
             --on-blue: var(--sh-on-primary);
-            --on-green: #00391f;
-            --on-red: #690005;
-            --on-orange: #412d00;
+            --on-green: var(--sh-on-ok);
+            --on-red: var(--sh-on-loud);
+            --on-orange: var(--sh-on-warn);
 
-            /* Expressive Shapes */
-            --radius-sm: 8px;
-            --radius: 16px;
-            --radius-lg: 20px;
-            --radius-xl: 28px;
+            /* Verkettet, nicht fest verdrahtet. Dieser zweite :root-Block steht
+               NACH dem ersten und gewinnt — die Radien hier fest zu lassen hiess,
+               dass die Angleichung weiter oben sichtbar nichts bewirkt. */
+            --radius-sm: var(--sh-radius-sm);
+            --radius:    var(--sh-radius);
+            --radius-lg: var(--sh-pill);
+            --radius-xl: var(--sh-radius);
 
             /* Expressive Spring (spatial = Overshoot) + Effects-Easing */
             --md-ease-spatial: linear(0,0.009 1.2%,0.035 2.5%,0.158 6%,0.793 18.4%,0.984 23%,1.07 27%,1.104 31.5%,1.103 35%,1.07 41%,1.013 50%,0.991 57%,0.998 75%,1);
@@ -687,22 +689,10 @@
             --font-family: "Roboto Flex","Roboto",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
         }
 
-        [data-theme="light"] {
-            --background-dark: #f9f9ff;
-            --background-darker: #eef0f7;
-            --card-background: #ffffff;
-            --accent-blue: #415f91;
-            --accent-green: #1f6b3f;
-            --accent-red: #ba1a1a;
-            --accent-orange: #8a5300;
-            --text-primary: #191c20;
-            --text-secondary: #44474e;
-            --md-outline-variant: #c4c6d0;
-            --on-blue: #ffffff;
-            --on-green: #ffffff;
-            --on-red: #ffffff;
-            --on-orange: #ffffff;
-        }
+        /* Kein app-eigener Hell-Block mehr: alle Tokens oben zeigen auf --sh-*,
+           und die kippt shared/theme.css unter [data-theme="light"] selbst. Eine
+           zweite Palette hier hiesse, dieselbe Absicht an zwei Orten zu pflegen
+           — genau so sind die neun Themes auseinandergelaufen. */
 
         /* ---- Surfaces ---- */
         /* Diese spätere Regel hielt die Platte am Leben: eigener Flächenton,
