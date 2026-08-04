@@ -75,11 +75,22 @@ _serial_booted = False     # True after open settled — reader may consume line
 # broken. Freshness of *any* line is the robust signal — see liveness_watchdog.
 _last_rx = 0.0             # monotonic time of the last line received from the R4
 RX_STALE_S = 25.0          # silence this long → probe, then re-enumerate
+# pyserial defaults to write_timeout=None, i.e. an unbounded wait for the port to
+# accept data. When the R4's CDC stops draining its endpoint — which this host
+# provokes regularly via undervoltage — that write parks in pselect6() forever
+# while holding ser_lock. Every IR command, every matrix push and, fatally, the
+# liveness watchdog's own nudge then queue up behind it: the self-healing added
+# for exactly this failure was itself deadlocked by it. Observed live with 17
+# handler threads in futex_wait and the watchdog among them.
+SER_WRITE_TIMEOUT = 1.0    # a healthy R4 accepts a line in microseconds
+LOCK_WAIT_S = 2.5          # bound every wait for the port, callers included
 _last_value = None
 _last_beats = None
 IDLE_LEVEL = 0.03          # Pegel darunter = Stille -> Matrix zeigt "--"
 FLASH_MIN_GAP = 0.30       # max ~3 Beat-Flashes/s -> ruhigere BPM-/Beat-Anzeige
 _last_flash_ts = 0.0
+_log_seen = {}             # tag -> (msg, ts); dedupes the reconnect loop's log
+LOG_REPEAT_S = 300.0       # re-state a standing condition at most every 5 min
 _last_spectrum = None
 IRIS_HOLD_S = 0.35         # min time to keep IRIS up (anti-flicker)
 _iris_since = 0.0
@@ -220,6 +231,27 @@ R4_USB_ID = "2341:1002"                    # Arduino UNO R4 WiFi
 _USBDEVFS_RESET = (ord("U") << 8) | 20
 
 
+def _log_once(tag, msg):
+    """Log a standing condition once, then at most every LOG_REPEAT_S.
+
+    The reconnect loop runs every 3 s. While the board is physically off the bus
+    that produced ~2400 lines an hour — and because two different messages
+    alternated, deduping on the text alone caught none of them. Hence a per-tag
+    key: each condition speaks for itself, and none of them drowns the one line
+    that matters when the R4 finally comes back."""
+    prev = _log_seen.get(tag)
+    now = time.monotonic()
+    if prev and prev[0] == msg and now - prev[1] < LOG_REPEAT_S:
+        return
+    _log_seen[tag] = (msg, now)
+    print(msg, flush=True)
+
+
+def _log_reset():
+    """Clear the suppression so the next failure is reported immediately."""
+    _log_seen.clear()
+
+
 def usb_reset_r4():
     """Re-enumerate the R4 over USB — the only remote way back from a wedged CDC.
 
@@ -240,7 +272,7 @@ def usb_reset_r4():
         return False
     m = re.search(r"Bus (\d+) Device (\d+): ID " + re.escape(R4_USB_ID), out)
     if not m:
-        print("USB-Reset: R4 %s nicht am Bus" % R4_USB_ID, flush=True)
+        _log_once("nobus", "USB-Reset: R4 %s nicht am Bus" % R4_USB_ID)
         return False
     path = "/dev/bus/usb/%s/%s" % (m.group(1), m.group(2))
     try:
@@ -267,7 +299,7 @@ def try_open_serial(allow_reset=True):
         _serial_booted = False
         # Plain open — matching a working interactive session. No 1200-touch,
         # no dsrdtr flags (both have wedged this R4's USB-CDC in the past).
-        s = serial.Serial(port, BAUD, timeout=0.4)
+        s = serial.Serial(port, BAUD, timeout=0.4, write_timeout=SER_WRITE_TIMEOUT)
         try:
             s.reset_input_buffer()
         except Exception:
@@ -310,10 +342,11 @@ def try_open_serial(allow_reset=True):
         ser = s
         _serial_booted = True
         globals()["_last_rx"] = time.monotonic()   # arm the watchdog from now
+        _log_reset()
         print("Serial offen: %s (ready=%s)" % (port, saw), flush=True)
         return True
     except Exception as e:
-        print("Serial-Open-Fehler:", e, flush=True)
+        _log_once("open", "Serial-Open-Fehler: %s" % e)
         ser = None
         _serial_booted = False
         if allow_reset:
@@ -354,7 +387,7 @@ def serial_loop():
 def _write_line(line):
     """Eine Zeile an den Arduino schreiben. Lock muss gehalten werden.
        Ohne/defektem R4: `ser=None` setzen (serial_loop öffnet neu) + Fehler werfen."""
-    global ser
+    global ser, _serial_booted
     if ser is None:
         raise RuntimeError("R4 nicht verbunden")
     try:
@@ -370,20 +403,34 @@ def _write_line(line):
 def send_code(code, repeats):
     """Emit an IR code. Fire-and-forget: the firmware echoes `TX 0x<hex>`, but
     waiting for it here is not viable while the matrix stream saturates the
-    port. liveness_watchdog covers the case the ack was meant to catch."""
-    with ser_lock:
+    port. liveness_watchdog covers the case the ack was meant to catch.
+
+    Fails fast if the port is busy. Blocking here just stacks handler threads
+    behind a wedge — the caller already timed out and a queued keypress that
+    lands minutes later is worse than none."""
+    if not ser_lock.acquire(timeout=LOCK_WAIT_S):
+        raise RuntimeError("R4 belegt (Port blockiert)")
+    try:
         for _ in range(max(1, repeats)):
             _write_line("%02X" % code)
             time.sleep(0.06)
+    finally:
+        ser_lock.release()
 
 
 def push_matrix(line):
-    """Matrix-Daten an den R4 (fire-and-forget; ohne R4 still übersprungen)."""
-    with ser_lock:
-        try:
-            _write_line(line)
-        except Exception:
-            pass   # kein R4 -> Matrix-Update auslassen
+    """Matrix-Daten an den R4 (fire-and-forget; ohne R4 still übersprungen).
+
+    Skips rather than waits: this runs on the poll loop, and a frame that is
+    two seconds late is worthless anyway."""
+    if not ser_lock.acquire(timeout=0.5):
+        return
+    try:
+        _write_line(line)
+    except Exception:
+        pass       # kein R4 -> Matrix-Update auslassen
+    finally:
+        ser_lock.release()
 
 def reader():
     """Continuously read serial and cache the R4's streamed frames ('F'+24 hex).
@@ -687,25 +734,36 @@ def liveness_watchdog():
             continue
         # Nudge before judging: in "off" the R4 streams nothing by itself, but
         # it always answers a mode command with "M<n>".
-        try:
-            with ser_lock:
+        # Never wait on ser_lock here. Failing to get it while nothing has come
+        # back for RX_STALE_S is not a reason to keep waiting — it IS the
+        # diagnosis: a writer is parked on a port that stopped draining. Waiting
+        # for that lock is exactly what kept this watchdog from ever firing.
+        if ser_lock.acquire(timeout=LOCK_WAIT_S):
+            try:
                 _write_line("m%d" % MODE_NUM.get(matrix_mode, 0))
-        except Exception:
-            continue                       # write failed → serial_loop reopens
-        time.sleep(3.0)
-        quiet = time.monotonic() - _last_rx
-        if quiet < RX_STALE_S:
-            continue
-        print("R4 seit %.0fs stumm — USB-Reset" % quiet, flush=True)
+            except Exception:
+                continue                   # write failed → serial_loop reopens
+            finally:
+                ser_lock.release()
+            time.sleep(3.0)
+            quiet = time.monotonic() - _last_rx
+            if quiet < RX_STALE_S:
+                continue
+            print("R4 seit %.0fs stumm — USB-Reset" % quiet, flush=True)
+        else:
+            print("R4 stumm und Port seit >%.1fs belegt — USB-Reset erzwungen"
+                  % LOCK_WAIT_S, flush=True)
         if usb_reset_r4():
-            with ser_lock:
-                try:
-                    if ser:
-                        ser.close()
-                except Exception:
-                    pass
-                ser = None
-                _serial_booted = False     # serial_loop picks it up again
+            # Deliberately outside the lock: whoever holds it is the stuck
+            # writer, and re-enumeration is what frees it (its write fails once
+            # the device is gone). Drop the handle so serial_loop reopens; the
+            # stuck thread cleans up through its own exception path.
+            s, ser, _serial_booted = ser, None, False
+            try:
+                if s:
+                    s.close()
+            except Exception:
+                pass
 
 
 def main():

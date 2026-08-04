@@ -232,6 +232,66 @@ Shared firmware lives in gartenklima/raumklima `arduino/r4-firmware/` (not this 
 
 Serial: plain ACM open + `m0` probe; **avoid** 1200-baud touch and `stty` ExecStartPre on `/dev/ttyACM0` (wedges USB-CDC). Drop-in on raspi5: `/etc/systemd/system/teufel-ir-bridge.service.d/no-stty.conf`.
 
+## Der Deadlock, der die Selbstheilung lahmlegte (2026-08-04)
+
+Das Watchdog-Konstrukt von 2026-08-02 konnte in genau dem Fall nicht feuern, für
+den es geschrieben wurde. **pyserial hat `write_timeout=None` als Default** — ein
+unbegrenztes Warten darauf, dass der Port Daten annimmt. Wenn der R4 aufhört,
+seinen USB-Endpunkt zu leeren, parkt `ser.write()` **für immer in `pselect6()`,
+und zwar mit gehaltenem `ser_lock`**. Alles, was den Port braucht, staut sich
+dahinter: IR-Befehle, Matrix-Pushes — und der Nudge des Watchdogs selbst.
+
+Live vorgefunden: **17 Handler-Threads in `futex_wait`**, der Watchdog mitten
+darunter, ein Thread in `pselect6` mit gesetztem Write-Set und **NULL-Timeout**.
+`MATRIX?` antwortete weiter (beantwortet aus dem Cache, ohne Lock) und `FRAME?`
+lieferte ein eingefrorenes Bild — von außen sah die Bridge gesund aus, während
+node im Sekundentakt `IR bridge timeout` loggte.
+
+Drei Korrekturen:
+
+1. **`write_timeout=SER_WRITE_TIMEOUT` (1 s)** beim Öffnen. Der Write scheitert
+   jetzt, `_write_line` verwirft den Port, `serial_loop` öffnet neu.
+2. **Jedes Warten auf den Port ist begrenzt.** `send_code` scheitert nach
+   `LOCK_WAIT_S` mit einem Fehler (ein Tastendruck, der Minuten später ankommt,
+   ist schlimmer als keiner), `push_matrix` überspringt still.
+3. **Der Watchdog wartet nicht mehr auf das Lock.** Das Lock nicht zu bekommen,
+   während seit `RX_STALE_S` nichts zurückkommt, ist **kein Grund zu warten —
+   es ist die Diagnose**. Er setzt dann direkt zurück, bewusst ohne Lock: wer es
+   hält, ist der feststeckende Writer, und die Re-Enumeration ist genau das, was
+   ihn befreit.
+
+Nebenbei: `_write_line` setzte `_serial_booted` ohne `global` — die Zuweisung war
+wirkungslos, entgegen dem Docstring. Und der Reconnect-Loop (alle 3 s) hat bei
+physisch abwesendem R4 ~2400 Zeilen/h produziert; `_log_once(tag, msg)`
+unterdrückt das jetzt **pro Bedingung** (eine Dedupe nur über den Text griff
+nicht, weil sich zwei Meldungen abwechselten).
+
+`tests/test_ir_bridge_deadlock.py` hält alle vier Eigenschaften fest.
+
+## ⚠️ Die eigentliche Ursache ist Strom, nicht Software
+
+Der Deadlock-Fix macht die Bridge robust — er behebt **nicht**, warum der R4
+überhaupt wegbricht. Am 2026-08-04 gemessen:
+
+- **1318 `Undervoltage detected` in 2 d 9,7 h** Uptime (~23/h, alle 2,5 min eins)
+- **`usb_max_current_enable` steht NICHT in `/boot/firmware/config.txt`** → der
+  Pi 5 deckelt den gesamten USB-Strom auf **600 mA**. Daran hängen der R4 (bis
+  500 mA), das USB-Mikrofon und zwei Genesys-Hubs.
+- Im `dmesg` fallen Enumeration und Brownout **ins selbe Sekundenfenster**:
+  `new full-speed USB device number 11` → `Undervoltage detected!` →
+  `device descriptor read/64, error -110` → `device not accepting address, error -62`.
+
+Das ist derselbe Befund wie damals auf raspi3 (Memory `raspi3-usb-power-crashes`).
+**Wenn der R4 in diesem Zustand ist, hilft keine Software mehr:** `USBDEVFS_RESET`,
+`authorized`-Toggle und ein Reset des Elternhubs sind alle durchprobiert — das
+Gerät nimmt die Adresse nicht an. Dann bleibt nur physisches Aus- und Einstecken,
+besser an einem **aktiven** USB-Hub. Dauerhaft: 5 V/5 A (27 W USB-C PD) und/oder
+`usb_max_current_enable=1` (braucht Reboot; nur sinnvoll, wenn das Netzteil den
+Strom auch liefern kann — sonst erkauft man sich mehr Brownouts statt weniger).
+
+Die Bridge versucht derweil alle 3 s neu und greift den R4 automatisch, sobald er
+wieder am Bus ist — nach dem Replug ist kein Eingriff nötig.
+
 ## R4 wedges — and how the bridge gets out of it
 
 raspi5 browns out constantly (hundreds of `Undervoltage detected` per day), and a glitched USB link leaves the R4 **accepting writes while it stops answering anything**. From the Pi that is indistinguishable from healthy hardware: the port is open, writes succeed, and matrix updates plus IR codes vanish into the void while every layer above reports success. A service restart does not help — the wedge sits in the device, not in the handle. Only re-enumeration clears it.
