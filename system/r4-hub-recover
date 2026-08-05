@@ -1,0 +1,40 @@
+#!/bin/sh
+# Power-cycles the downstream ports of a USB hub by re-authorizing it.
+#
+# Why this exists: when the R4 browns out hard it stops enumerating entirely.
+# USBDEVFS_RESET cannot help then — it needs a device to reset — and the bridge
+# is left logging "not on the bus" until someone physically unplugs the board.
+# On 2026-08-04 that was 18.6 hours. Toggling `authorized` on the hub the board
+# hangs from cuts power to its ports and brings it back.
+#
+# `authorized` is root-owned in sysfs and udev's MODE/GROUP only reach device
+# nodes, not sysfs attributes. Rather than widening permissions on every hub,
+# the bridge (running as `pi`) calls this one command through a narrow sudoers
+# entry — see system/teufel-ir-bridge.sudoers.
+#
+# Usage: r4-hub-recover <hub>       e.g. r4-hub-recover 1-2
+set -eu
+
+HUB="${1:-}"
+
+# Strict: a bus-port name and nothing else. The argument reaches us across a
+# sudo boundary, so it decides which file gets written — anything looser and
+# this becomes a way to write arbitrary paths as root.
+case "$HUB" in
+    *[!0-9.-]* | '' | *..* ) echo "r4-hub-recover: ungültiger Hub '$HUB'" >&2; exit 2 ;;
+esac
+echo "$HUB" | grep -Eq '^[0-9]+-[0-9]+(\.[0-9]+)*$' || {
+    echo "r4-hub-recover: ungültiger Hub '$HUB'" >&2; exit 2; }
+
+ATTR="/sys/bus/usb/devices/$HUB/authorized"
+[ -w "$ATTR" ] || { echo "r4-hub-recover: $ATTR nicht vorhanden" >&2; exit 3; }
+
+# Only ever act on an actual hub. Deauthorizing a non-hub would just drop that
+# one device without power-cycling anything.
+CLASS=$(cat "/sys/bus/usb/devices/$HUB/bDeviceClass" 2>/dev/null || echo "")
+[ "$CLASS" = "09" ] || { echo "r4-hub-recover: $HUB ist kein Hub (class=$CLASS)" >&2; exit 4; }
+
+echo 0 > "$ATTR"
+sleep 3
+echo 1 > "$ATTR"
+echo "r4-hub-recover: $HUB neu autorisiert"

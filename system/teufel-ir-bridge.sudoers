@@ -1,0 +1,11 @@
+# teufel-ir-bridge runs as `pi` but needs to power-cycle a USB hub to recover
+# an R4 that has stopped enumerating (see system/r4-hub-recover for why).
+#
+# Exactly one command, no arguments wildcarded beyond what the script itself
+# validates as a bus-port name.
+#
+# Install:
+#   sudo install -m 0755 system/r4-hub-recover /usr/local/sbin/
+#   sudo install -m 0440 system/teufel-ir-bridge.sudoers /etc/sudoers.d/teufel-ir-bridge
+#   sudo visudo -cf /etc/sudoers.d/teufel-ir-bridge
+pi ALL=(root) NOPASSWD: /usr/local/sbin/r4-hub-recover

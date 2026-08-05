@@ -228,6 +228,16 @@ def find_port():
     return cands[0] if cands else "/dev/ttyACM0"
 
 R4_USB_ID = "2341:1002"                    # Arduino UNO R4 WiFi
+
+# Wenn der R4 gar nicht mehr enumeriert ist, greift USBDEVFS_RESET nicht — der
+# braucht ein Geraet. Dann hilft nur, den HUB neu zu autorisieren, an dem er
+# haengt: das schaltet dessen Downstream-Ports stromlos und wieder ein.
+HUB_RECOVER_CMD = "/usr/local/sbin/r4-hub-recover"
+HUB_RECOVER_AFTER = 6          # erfolglose Oeffnungsversuche, bevor eskaliert wird
+HUB_RECOVER_COOLDOWN = 600.0   # s — der Hub traegt auch das Mikro, also selten
+_hub_fail_streak = 0
+_hub_last_recover = 0.0
+_r4_hub_path = None            # gemerkt, solange der R4 da ist
 _USBDEVFS_RESET = (ord("U") << 8) | 20
 
 
@@ -250,6 +260,100 @@ def _log_once(tag, msg):
 def _log_reset():
     """Clear the suppression so the next failure is reported immediately."""
     _log_seen.clear()
+
+
+def remember_hub_path():
+    """Merkt sich den Hub, an dem der R4 haengt — solange er noch da ist.
+
+    Ist er weg, laesst sich sein Pfad nicht mehr erfragen; die Rettung braucht
+    ihn aber. Also einmal im Verbindungsfall ablesen und behalten.
+    """
+    global _r4_hub_path
+    try:
+        dev = os.path.realpath("/sys/class/tty/%s/device" % os.path.basename(find_port()))
+        # .../usb1/1-2/1-2.1/1-2.1.3/1-2.1.3:1.1  ->  Geraetepfad ist der Vorletzte
+        while dev and not re.fullmatch(r"\d+-[\d.]+", os.path.basename(dev)):
+            neu = os.path.dirname(dev)
+            if neu == dev:
+                return
+            dev = neu
+        # Nicht der eigene Hub, sondern dessen ELTERN: ein Toggle am Hub des
+        # Geraets hat den R4 im Ernstfall nicht zurueckgeholt, einer eine Ebene
+        # hoeher schon (2026-08-05 live verifiziert).
+        hub = os.path.dirname(dev)                      # .../1-2.1
+        eltern = os.path.dirname(hub)                   # .../1-2
+        name = os.path.basename(eltern)
+        if re.fullmatch(r"\d+-[\d.]+", name):
+            _r4_hub_path = "/sys/bus/usb/devices/%s" % name
+    except Exception:
+        pass
+
+
+def _kandidaten_hubs():
+    """Hubs, deren Neu-Autorisierung den R4 zurueckbringen kann."""
+    if _r4_hub_path and os.path.exists(_r4_hub_path):
+        return [_r4_hub_path]
+    # Kein gemerkter Pfad (Bridge startete, als der R4 schon weg war): alle
+    # Hubs direkt unter einem Root-Hub. Tiefere anzufassen bringt nichts —
+    # sie haengen selbst an einem, der dann mitgeht.
+    out = []
+    try:
+        for name in sorted(os.listdir("/sys/bus/usb/devices")):
+            if not re.fullmatch(r"\d+-\d+", name):
+                continue
+            pfad = "/sys/bus/usb/devices/%s" % name
+            try:
+                with open(os.path.join(pfad, "bDeviceClass")) as f:
+                    if f.read().strip() == "09":        # 09 = Hub
+                        out.append(pfad)
+            except OSError:
+                pass
+    except OSError:
+        pass
+    return out
+
+
+def usb_hub_recover():
+    """Letzte Stufe: Hub-Ports stromlos schalten und wieder einschalten.
+
+    Kostet kurz auch die anderen Geraete am selben Hub (hier das Mikrofon, das
+    binnen einer Sekunde zurueckkommt) — deshalb erst nach mehreren erfolglosen
+    Versuchen und mit Abkuehlzeit. Ohne diese Stufe blieb der R4 nach einem
+    Brownout liegen, bis jemand physisch umsteckte: am 2026-08-04 waren das
+    18,6 Stunden, in denen die Bridge im Log korrekt "nicht am Bus" meldete und
+    nichts weiter tun konnte.
+    """
+    global _hub_last_recover
+    jetzt = time.monotonic()
+    if jetzt - _hub_last_recover < HUB_RECOVER_COOLDOWN:
+        return False
+    hubs = _kandidaten_hubs()
+    if not hubs:
+        _log_once("nohub", "Hub-Recovery: kein Kandidat gefunden")
+        return False
+    _hub_last_recover = jetzt
+    ok = False
+    for hub in hubs:
+        name = os.path.basename(hub)
+        try:
+            # `authorized` gehoert root und udevs MODE/GROUP erreichen nur
+            # Geraeteknoten, keine sysfs-Attribute. Statt die Rechte auf jedem
+            # Hub aufzuweichen, laeuft genau ein Kommando ueber sudo — siehe
+            # system/r4-hub-recover und system/teufel-ir-bridge.sudoers.
+            out = subprocess.run(["sudo", "-n", HUB_RECOVER_CMD, name],
+                                 capture_output=True, text=True, timeout=20)
+            if out.returncode == 0:
+                print("Hub-Recovery: %s" % (out.stdout.strip() or name), flush=True)
+                ok = True
+            else:
+                _log_once("hubfail", "Hub-Recovery fehlgeschlagen (%s): %s"
+                          % (out.returncode, (out.stderr or out.stdout).strip()))
+        except Exception as e:
+            _log_once("hubexc", "Hub-Recovery nicht ausfuehrbar: %s" % e)
+    if ok:
+        time.sleep(8.0)      # Enumeration abwarten
+        _log_reset()
+    return ok
 
 
 def usb_reset_r4():
@@ -342,6 +446,8 @@ def try_open_serial(allow_reset=True):
         ser = s
         _serial_booted = True
         globals()["_last_rx"] = time.monotonic()   # arm the watchdog from now
+        globals()["_hub_fail_streak"] = 0
+        remember_hub_path()
         _log_reset()
         print("Serial offen: %s (ready=%s)" % (port, saw), flush=True)
         return True
@@ -381,6 +487,15 @@ def serial_loop():
                     except Exception:
                         pass
             else:
+                # Der R4 ist nicht am Bus: USBDEVFS_RESET greift dann nicht (der
+                # braucht ein Geraet). Nach mehreren Fehlversuchen den Hub neu
+                # autorisieren — das ist der einzige Weg zurueck, der ohne
+                # physisches Umstecken funktioniert.
+                globals()["_hub_fail_streak"] = _hub_fail_streak + 1
+                if _hub_fail_streak >= HUB_RECOVER_AFTER:
+                    globals()["_hub_fail_streak"] = 0
+                    if usb_hub_recover() and try_open_serial():
+                        continue
                 time.sleep(3); continue
         time.sleep(2)
 

@@ -268,6 +268,52 @@ nicht, weil sich zwei Meldungen abwechselten).
 
 `tests/test_ir_bridge_deadlock.py` hält alle vier Eigenschaften fest.
 
+## Wenn der R4 gar nicht mehr enumeriert (2026-08-05)
+
+Am 2026-08-04 um 05:33 fiel der R4 aus und war **18,6 Stunden weg**. Der
+Ausfall lief nach dem bekannten Muster (`error -110` → `error -62` →
+`attempt power cycle` → `unable to enumerate`), aber mit einer entscheidenden
+Zeile mittendrin: um 05:35:55 flog **auch das Mikrofon** vom selben Hub-Ast.
+Das ist kein R4-Problem — das ist der ganze Ast.
+
+**Warum nichts Alarm schlug:** der R4 lief die ganze Zeit weiter. Er postet
+Klima-Daten über **WLAN**, nicht über USB; die Messreihen von raumklima und
+gartenklima haben im Ausfallfenster **keine Lücke**. Jeder überwachte
+Datenstrom war gesund, während Matrix und IR ins Leere liefen. Wer hier nach
+einem Ausfall sucht, darf sich nicht auf die Klima-Feeds verlassen.
+
+**Was gefehlt hat:** `usb_reset_r4()` braucht ein Gerät. Ist der R4 gar nicht
+mehr am Bus, meldet die Bridge korrekt „nicht am Bus" — und konnte nichts
+weiter tun. Bisher hieß das: physisch umstecken.
+
+⚠️ **Der `authorized`-Toggle muss am ELTERN-Hub passieren.** Am Hub des Geräts
+(`1-2.1`) bewirkte er nichts; eine Ebene höher (`1-2`) kam der R4 nach acht
+Sekunden zurück. Das widerlegt die frühere Notiz, physisches Umstecken sei der
+einzige Weg — sie hatte die falsche Ebene erwischt.
+
+`usb_hub_recover()` macht das jetzt automatisch: nach `HUB_RECOVER_AFTER`=6
+erfolglosen Öffnungsversuchen, mit 10 min Abkühlzeit (der Hub trägt auch das
+Mikrofon, das binnen einer Sekunde zurückkommt). Der Hub-Pfad wird gemerkt,
+solange der R4 da ist — hinterher lässt er sich nicht mehr erfragen.
+**End-to-end nachgestellt: Ausfall → 50 s → wieder online.**
+
+⚠️ **`authorized` ist ein sysfs-Attribut, kein Geräteknoten** — udevs `MODE`
+und `GROUP` erreichen es nicht, und der Dienst läuft als `pi`. Statt die Rechte
+auf jedem Hub aufzuweichen, geht genau ein Kommando über sudo:
+`system/r4-hub-recover` + `system/teufel-ir-bridge.sudoers`. Das Skript prüft
+sein Argument streng (Bus-Port-Name, sonst nichts) — es entscheidet über eine
+sudo-Grenze hinweg, welche Datei als root geschrieben wird — und weigert sich
+bei allem, was kein Hub ist.
+
+**Stromlage am 2026-08-05:** `usb_max_current_enable` weiterhin **nicht**
+gesetzt (600-mA-Deckel), EXT5V bei **4,90 V** im Leerlauf, **2471
+Unterspannungs-Ereignisse in 3,2 Tagen** — durchgehend 30–49 pro 10 Minuten,
+nicht an ein Ereignis gekoppelt. ⚠️ **`usb_max_current_enable=1` wäre hier
+falsch:** die 5-V-Schiene sackt schon ohne R4 ab, ein höherer Deckel ließe die
+Peripherie mehr ziehen und verschlimmerte den Einbruch. Der Ausweg bleibt
+Hardware — **aktiver** USB-Hub (nimmt R4 und Mikro ganz von der Pi-Schiene)
+und/oder 5 V/5 A.
+
 ## ⚠️ Die eigentliche Ursache ist Strom, nicht Software
 
 Der Deadlock-Fix macht die Bridge robust — er behebt **nicht**, warum der R4
