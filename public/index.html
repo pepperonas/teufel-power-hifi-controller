@@ -266,7 +266,7 @@
                inzwischen in hue und yamaha. */
             background: color-mix(in srgb, var(--sh-text) 4%, transparent);
             color: var(--sh-text2);
-            padding: var(--spacing-3) var(--spacing-6);
+            padding: var(--spacing-2) var(--spacing-4);   /* kompakt (2026-08-14) */
             border: 1px solid var(--sh-outline);
             border-radius: var(--radius);
             font-size: 1rem;
@@ -278,9 +278,11 @@
             align-items: center;
             justify-content: center;
             gap: var(--spacing-2);
-            flex-direction: column;
+            /* 2026-08-14: row statt column — die Icon-ueber-Text-Stapelung
+               machte JEDEN Button doppelt so hoch wie noetig */
+            flex-direction: row;
             text-align: center;
-            min-height: 80px;
+            min-height: 44px;   /* Touch-Target trotz kompakter Optik */
             width: 100%;
         }
 
@@ -358,6 +360,24 @@
         .btn-lg {
             padding: var(--spacing-4) var(--spacing-8);
             font-size: 1.125rem;
+        }
+
+        /* Kompakt-Layout 2026-08-14 */
+        .ctl-row { display: flex; gap: var(--spacing-3); align-items: center; flex-wrap: wrap; }
+        .ctl-row .btn { flex: 1 1 120px; }
+        .big-sign { font-size: 1.35rem; line-height: 1; font-weight: 600; }
+        .eq-rows { display: grid; gap: var(--spacing-2); }
+        .eq-row { display: grid; grid-template-columns: 1fr auto auto; gap: var(--spacing-2); align-items: center; }
+        .eq-row .btn { min-width: 72px; }
+        .eq-label { display: flex; align-items: center; gap: var(--spacing-2); font-weight: 600; }
+        .inputs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: var(--spacing-2); }
+        .usb-i { width: 1em; height: 1em; display: block; }
+        .bn-group h3 { display: flex; align-items: center; gap: var(--spacing-2); justify-content: center; margin-bottom: var(--spacing-2); }
+        .bn-btns { display: flex; gap: var(--spacing-2); justify-content: center; }
+        .bn-btns .btn { min-width: 84px; }
+        .btn:focus-visible, .power-button:focus-visible {
+            outline: 2px solid var(--accent-blue);
+            outline-offset: 2px;
         }
 
         /* Slider */
@@ -441,8 +461,9 @@
 
         /* Power Button */
         .power-button {
-            width: 120px;
-            height: 120px;
+            width: 72px;
+            height: 72px;
+            flex: 0 0 auto;
             border-radius: 50%;
             border: 3px solid rgba(255, 255, 255, 0.3);
             background: var(--background-darker);
@@ -451,7 +472,7 @@
             align-items: center;
             justify-content: center;
             transition: all 0.3s ease;
-            margin: 0 auto var(--spacing-4);
+            margin: 0;
             position: relative;
             box-shadow: var(--shadow);
         }
@@ -628,11 +649,6 @@
             }
 
             /* Volume controls mobile layout */
-            .volume-controls {
-                display: flex !important;
-                flex-direction: column;
-                gap: var(--spacing-3);
-            }
             
             /* Reorder volume buttons for mobile: up, down, mute */
             .volume-controls #vol-up {
@@ -979,142 +995,101 @@ html.theme-anim::view-transition-new(root){
     </header>
 
     <div class="container">
-        <!-- Power Control -->
+        <!-- Steuerung: Power + Lautstaerke kompakt in EINER Karte (2026-08-14
+             — die Power-Karte war ~230 px fuer einen einzigen Knopf) -->
         <div class="card">
-            <h2>Stromversorgung</h2>
-            <div style="display: flex; justify-content: center; align-items: center; flex-direction: column;">
-                <div class="power-button" id="power-btn">
+            <h2>Steuerung</h2>
+            <div class="ctl-row">
+                <div class="power-button" id="power-btn" role="button" tabindex="0" aria-label="Power Ein/Aus">
                     <svg viewBox="0 0 24 24">
                         <path d="M12 3v10M5.25 8.25A7.5 7.5 0 1 0 18.75 8.25" stroke-linecap="round"></path>
                     </svg>
                 </div>
-                <p style="color: var(--text-secondary); margin-top: var(--spacing-3);">
-                    Power Ein/Aus
-                </p>
-            </div>
-        </div>
-
-        <!-- Volume Control -->
-        <div class="card">
-            <h2>Lautstärke</h2>
-            <div class="grid grid-3 volume-controls" style="gap: var(--spacing-4); align-items: stretch;">
-                <button class="btn btn-secondary btn-lg" id="mute-toggle">
+                <button class="btn btn-secondary" id="mute-toggle">
                     <span class="sh-i" data-sh-icon="mute" aria-hidden="true"></span>
                     <span>Stumm</span>
                 </button>
-                <button class="btn btn-lg" id="vol-down">
-                    <span style="font-size: 2rem;">−</span>
+                <button class="btn" id="vol-down">
+                    <span class="big-sign" aria-hidden="true">−</span>
                     <span>Leiser</span>
                 </button>
-                <button class="btn btn-lg" id="vol-up">
-                    <span style="font-size: 2rem;">+</span>
+                <button class="btn" id="vol-up">
+                    <span class="big-sign" aria-hidden="true">+</span>
                     <span>Lauter</span>
                 </button>
             </div>
         </div>
 
-        <!-- EQ Controls -->
+        <!-- EQ: eine Zeile je Band — Label links, −/+ rechts -->
         <div class="card">
             <h2>Equalizer</h2>
-            <div class="grid grid-3" style="gap: var(--spacing-4); align-items: stretch;">
-                <div style="text-align: center;">
-                    <h3 style="margin-bottom: var(--spacing-3); text-align: center;"><span class="sh-i" data-sh-icon="bass" aria-hidden="true"></span>Bass</h3>
-                    <div style="display: flex; flex-direction: column; gap: var(--spacing-2); height: 140px; justify-content: space-between;">
-                        <button class="btn" data-eq="bass" data-action="up" style="min-height: 60px;">
-                            <span style="font-size: 1.5rem;">+</span>
-                        </button>
-                        <button class="btn" data-eq="bass" data-action="down" style="min-height: 60px;">
-                            <span style="font-size: 1.5rem;">−</span>
-                        </button>
-                    </div>
+            <div class="eq-rows">
+                <div class="eq-row">
+                    <span class="eq-label"><span class="sh-i" data-sh-icon="bass" aria-hidden="true"></span>Bass</span>
+                    <button class="btn" data-eq="bass" data-action="down" aria-label="Bass verringern"><span class="big-sign">−</span></button>
+                    <button class="btn" data-eq="bass" data-action="up" aria-label="Bass erhöhen"><span class="big-sign">+</span></button>
                 </div>
-                <div style="text-align: center;">
-                    <h3 style="margin-bottom: var(--spacing-3); text-align: center;"><span class="sh-i" data-sh-icon="wave" aria-hidden="true"></span>Mitten</h3>
-                    <div style="display: flex; flex-direction: column; gap: var(--spacing-2); height: 140px; justify-content: space-between;">
-                        <button class="btn" data-eq="mid" data-action="up" style="min-height: 60px;">
-                            <span style="font-size: 1.5rem;">+</span>
-                        </button>
-                        <button class="btn" data-eq="mid" data-action="down" style="min-height: 60px;">
-                            <span style="font-size: 1.5rem;">−</span>
-                        </button>
-                    </div>
+                <div class="eq-row">
+                    <span class="eq-label"><span class="sh-i" data-sh-icon="wave" aria-hidden="true"></span>Mitten</span>
+                    <button class="btn" data-eq="mid" data-action="down" aria-label="Mitten verringern"><span class="big-sign">−</span></button>
+                    <button class="btn" data-eq="mid" data-action="up" aria-label="Mitten erhöhen"><span class="big-sign">+</span></button>
                 </div>
-                <div style="text-align: center;">
-                    <h3 style="margin-bottom: var(--spacing-3); text-align: center;"><span class="sh-i" data-sh-icon="note" aria-hidden="true"></span>Höhen</h3>
-                    <div style="display: flex; flex-direction: column; gap: var(--spacing-2); height: 140px; justify-content: space-between;">
-                        <button class="btn" data-eq="treble" data-action="up" style="min-height: 60px;">
-                            <span style="font-size: 1.5rem;">+</span>
-                        </button>
-                        <button class="btn" data-eq="treble" data-action="down" style="min-height: 60px;">
-                            <span style="font-size: 1.5rem;">−</span>
-                        </button>
-                    </div>
+                <div class="eq-row">
+                    <span class="eq-label"><span class="sh-i" data-sh-icon="sparkle" aria-hidden="true"></span>Höhen</span>
+                    <button class="btn" data-eq="treble" data-action="down" aria-label="Höhen verringern"><span class="big-sign">−</span></button>
+                    <button class="btn" data-eq="treble" data-action="up" aria-label="Höhen erhöhen"><span class="big-sign">+</span></button>
                 </div>
             </div>
         </div>
 
-        <!-- Input Selection -->
+        <!-- Eingänge: eine Reihe (auto-fit) -->
         <div class="card">
             <h2>Eingänge</h2>
-            <div class="grid grid-2" style="gap: var(--spacing-3); align-items: stretch; margin-bottom: var(--spacing-3);">
-                <button class="btn btn-primary btn-lg" data-input="AUX">
+            <div class="inputs-grid">
+                <button class="btn btn-primary" data-input="AUX">
                     <span class="sh-i" data-sh-icon="headphones" aria-hidden="true"></span>
                     <span>AUX</span>
                 </button>
-                <button class="btn btn-primary btn-lg" data-input="BLUETOOTH">
+                <button class="btn btn-primary" data-input="BLUETOOTH">
                     <span class="sh-i" data-sh-icon="antenna" aria-hidden="true"></span>
                     <span>Bluetooth</span>
                 </button>
-            </div>
-            <div class="grid grid-3" style="gap: var(--spacing-3); align-items: stretch;">
-                <button class="btn btn-primary btn-lg" data-input="LINE">
+                <button class="btn btn-primary" data-input="LINE">
                     <span class="sh-i" data-sh-icon="radio" aria-hidden="true"></span>
                     <span>Line</span>
                 </button>
-                <button class="btn btn-primary btn-lg" data-input="OPTICAL">
+                <button class="btn btn-primary" data-input="OPTICAL">
                     <span class="sh-i" data-sh-icon="disc" aria-hidden="true"></span>
                     <span>Optical</span>
                 </button>
-                <button class="btn btn-primary btn-lg" data-input="USB">
-                    <span class="sh-i" data-sh-icon="save" aria-hidden="true"></span>
+                <button class="btn btn-primary" data-input="USB">
+                    <svg class="usb-i" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V5.5"/><path d="M12 3l-1.8 2.9h3.6z" fill="currentColor" stroke="none"/><path d="M12 13.5L8.2 11.3V9.6"/><path d="M12 16.5l3.8-2.2v-1.8"/><circle cx="8.2" cy="8" r="1.4" fill="currentColor" stroke="none"/><rect x="14.4" y="9.2" width="2.8" height="2.8" fill="currentColor" stroke="none"/><circle cx="12" cy="20.2" r="1.7" fill="currentColor" stroke="none"/></svg>
                     <span>USB</span>
                 </button>
             </div>
         </div>
 
-        <!-- Balance & Navigation -->
+        <!-- Balance & Navigation: reine Pfeil-Buttons (das doppelte
+             "← Links"-Label sagte dasselbe zweimal) -->
         <div class="card">
             <h2>Balance & Navigation</h2>
             <div class="grid grid-2" style="gap: var(--spacing-4);">
-                <div style="text-align: center;">
-                    <h3 style="margin-bottom: var(--spacing-3);"><span class="sh-i" data-sh-icon="balance" aria-hidden="true"></span>Balance</h3>
-                    <div style="display: flex; gap: var(--spacing-2);">
-                        <button class="btn btn-primary" data-balance="left">
-                            <span style="font-size: 1.2rem;">←</span>
-                            <span>Links</span>
-                        </button>
-                        <button class="btn btn-primary" data-balance="right">
-                            <span>Rechts</span>
-                            <span style="font-size: 1.2rem;">→</span>
-                        </button>
+                <div class="bn-group">
+                    <h3><span class="sh-i" data-sh-icon="balance" aria-hidden="true"></span>Balance</h3>
+                    <div class="bn-btns">
+                        <button class="btn btn-primary" data-balance="left" aria-label="Balance nach links"><span class="big-sign">←</span></button>
+                        <button class="btn btn-primary" data-balance="right" aria-label="Balance nach rechts"><span class="big-sign">→</span></button>
                     </div>
                 </div>
-                <div style="text-align: center;">
-                    <h3 style="margin-bottom: var(--spacing-3);"><span class="sh-i" data-sh-icon="sliders" aria-hidden="true"></span>Navigation</h3>
-                    <div style="display: flex; gap: var(--spacing-2);">
-                        <button class="btn btn-primary" data-nav="left">
-                            <span style="font-size: 1.2rem;">←</span>
-                            <span>Links</span>
-                        </button>
-                        <button class="btn btn-primary" data-nav="right">
-                            <span>Rechts</span>
-                            <span style="font-size: 1.2rem;">→</span>
-                        </button>
+                <div class="bn-group">
+                    <h3><span class="sh-i" data-sh-icon="target" aria-hidden="true"></span>Navigation</h3>
+                    <div class="bn-btns">
+                        <button class="btn btn-primary" data-nav="left" aria-label="Navigation nach links"><span class="big-sign">←</span></button>
+                        <button class="btn btn-primary" data-nav="right" aria-label="Navigation nach rechts"><span class="big-sign">→</span></button>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
     <!-- Footer -->
 
@@ -1176,6 +1151,10 @@ html.theme-anim::view-transition-new(root){
             attachEventListeners() {
                 // Power control
                 this.elements.powerBtn.addEventListener('click', () => this.sendCommand('power'));
+                // role=button am <div> braucht auch Enter/Space (A11y)
+                this.elements.powerBtn.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.elements.powerBtn.click(); }
+                });
 
                 // Volume control
                 this.elements.volUpBtn.addEventListener('click', () => this.handleVolumeUp());
