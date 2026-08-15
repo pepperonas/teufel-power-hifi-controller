@@ -206,6 +206,11 @@
             margin: 0 auto;
             padding: 0 0 var(--sh-pad-bottom);
         }
+        /* Mit geteiltem Seitenfuss bringt DER seinen Abstand mit (56 px) —
+           zusammen mit dem Unterpolster des Containers waren es 128 px unter
+           der letzten Karte (Haus-Mass: 56). Ohne Fuss (Direktzugriff per
+           Port) bleibt das Polster, sonst endet der Inhalt buendig. */
+        body.sh-footer-page .container { padding-bottom: 0; }
 
         .card {
             background-color: var(--card-background);
