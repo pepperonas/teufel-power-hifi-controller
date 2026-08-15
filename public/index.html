@@ -212,8 +212,12 @@
            Port) bleibt das Polster, sonst endet der Inhalt buendig. */
         body.sh-footer-page .container { padding-bottom: 0; }
         /* Die LETZTE Karte braucht ihren Abstand nicht — darunter kommt
-           nur noch der Seitenfuss, der seinen eigenen mitbringt. */
-        .container > .card:last-of-type { margin-bottom: 0; }
+           nur noch der Seitenfuss, der seinen eigenen mitbringt.
+           ⚠️ :last-of-type greift hier NICHT: nach den Karten steht noch
+           der Toast-Container .message, die Karte ist also nicht das
+           letzte Element ihres Typs im Fluss. */
+        body.sh-footer-page .container > .card:last-of-type,
+        body.sh-footer-page .container > .card:has(+ .message) { margin-bottom: 0; }
 
         .card {
             background-color: var(--card-background);
