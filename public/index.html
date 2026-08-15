@@ -211,6 +211,9 @@
            der letzten Karte (Haus-Mass: 56). Ohne Fuss (Direktzugriff per
            Port) bleibt das Polster, sonst endet der Inhalt buendig. */
         body.sh-footer-page .container { padding-bottom: 0; }
+        /* Die LETZTE Karte braucht ihren Abstand nicht — darunter kommt
+           nur noch der Seitenfuss, der seinen eigenen mitbringt. */
+        .container > .card:last-of-type { margin-bottom: 0; }
 
         .card {
             background-color: var(--card-background);
