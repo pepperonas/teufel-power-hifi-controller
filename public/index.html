@@ -225,7 +225,7 @@
             padding: var(--sh-card-pad);
             margin-bottom: var(--sh-gap-lg);
             box-shadow: var(--shadow);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid color-mix(in srgb, var(--text-primary) 10%, transparent);
         }
 
 
@@ -491,7 +491,7 @@
             height: 72px;
             flex: 0 0 auto;
             border-radius: 50%;
-            border: 3px solid rgba(255, 255, 255, 0.3);
+            border: 3px solid color-mix(in srgb, var(--text-primary) 32%, transparent);
             background: var(--background-darker);
             cursor: pointer;
             display: flex;
@@ -541,7 +541,7 @@
             padding: var(--spacing-4);
             border-radius: var(--radius);
             text-align: center;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid color-mix(in srgb, var(--text-primary) 10%, transparent);
         }
 
         .stat-value {
@@ -610,7 +610,7 @@
             border-radius: 16px;
             cursor: pointer;
             transition: background 0.3s ease;
-            border: 2px solid rgba(255, 255, 255, 0.2);
+            border: 2px solid color-mix(in srgb, var(--text-primary) 22%, transparent);
         }
 
 
@@ -648,7 +648,7 @@
             display: inline-block;
             width: 20px;
             height: 20px;
-            border: 3px solid rgba(255, 255, 255, 0.3);
+            border: 3px solid color-mix(in srgb, var(--text-primary) 32%, transparent);
             border-radius: 50%;
             border-top-color: var(--accent-blue);
             animation: spin 1s ease-in-out infinite;
@@ -1000,8 +1000,8 @@ html.theme-anim::view-transition-new(root){
         h1 .sh-i,h2 .sh-i,h3 .sh-i{margin-right:.4rem;vertical-align:-.1em}
         .btn .sh-i svg{width:1.35em;height:1.35em}
 </style>
-    <script src="/shared/icons.js?v=8" defer></script>
-    <script src="/shared/nav.js?v=20" defer blocking="render"></script>
+    <script src="/shared/icons.js?v=9" defer></script>
+    <script src="/shared/nav.js?v=21" defer blocking="render"></script>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
 </head>

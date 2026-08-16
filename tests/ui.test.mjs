@@ -63,8 +63,8 @@ test('der Toast-Container hebelt die Regel nicht aus', () => {
 });
 
 test('geteilte Leiste und Icons stehen auf der Hausversion', () => {
-  assert.match(HTML, /nav\.js\?v=20/);
-  assert.match(HTML, /icons\.js\?v=8/);
+  assert.match(HTML, /nav\.js\?v=21/);
+  assert.match(HTML, /icons\.js\?v=9/);
 });
 
 test('Icons kommen aus dem geteilten Set, nicht als Emoji', () => {
